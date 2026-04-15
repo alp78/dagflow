@@ -1,0 +1,22 @@
+[project]
+name = "dagflow-dagster"
+version = "0.1.0"
+description = "Dagster orchestration package for Dagflow"
+requires-python = ">=3.13"
+dependencies = [
+  "dagflow-pipeline-framework",
+  "dagflow-source-adapters",
+  "dagster>=1.10.10",
+  "dagster-dbt>=0.26.10",
+  "dbt-postgres>=1.9.0",
+  "psycopg[binary]>=3.2.9",
+  "pydantic-settings>=2.9.1",
+]
+
+[tool.uv.sources]
+dagflow-pipeline-framework = { workspace = true }
+dagflow-source-adapters = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

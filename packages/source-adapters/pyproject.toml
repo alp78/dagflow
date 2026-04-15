@@ -1,0 +1,16 @@
+[project]
+name = "dagflow-source-adapters"
+version = "0.1.0"
+description = "Source adapter protocol and SEC-focused adapters for Dagflow"
+requires-python = ">=3.13"
+dependencies = [
+  "dagflow-pipeline-framework",
+  "pydantic>=2.11.0",
+]
+
+[tool.uv.sources]
+dagflow-pipeline-framework = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

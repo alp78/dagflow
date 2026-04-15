@@ -1,0 +1,20 @@
+[project]
+name = "dagflow-api"
+version = "0.1.0"
+description = "Dagflow FastAPI backend"
+requires-python = ">=3.13"
+dependencies = [
+  "dagflow-pipeline-framework",
+  "fastapi>=0.115.12",
+  "pydantic-settings>=2.9.1",
+  "psycopg[binary]>=3.2.9",
+  "psycopg-pool>=3.2.6",
+  "uvicorn[standard]>=0.34.2",
+]
+
+[tool.uv.sources]
+dagflow-pipeline-framework = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

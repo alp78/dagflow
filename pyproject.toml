@@ -1,0 +1,77 @@
+[project]
+name = "dagflow-workspace"
+version = "0.1.0"
+description = "Dagflow monorepo workspace"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28.1",
+  "mypy>=1.15.0",
+  "pydantic>=2.11.0",
+  "psycopg[binary]>=3.2.9",
+  "pytest>=8.3.5",
+  "pytest-cov>=5.0.0",
+  "ruff>=0.11.8",
+]
+
+[tool.uv.workspace]
+members = [
+  "apps/api",
+  "apps/dagster",
+  "packages/pipeline-framework",
+  "packages/source-adapters",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = [
+  "apps/api/src",
+  "apps/dagster/src",
+  "packages/pipeline-framework/src",
+  "packages/source-adapters/src",
+]
+testpaths = [
+  "apps/api/tests",
+  "apps/dagster/tests",
+  "packages/pipeline-framework/tests",
+  "packages/source-adapters/tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C4", "ARG", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/api/src/dagflow_api/routers/*.py" = ["B008"]
+
+[tool.mypy]
+python_version = "3.13"
+pretty = true
+show_error_codes = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+namespace_packages = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["dagflow_api.repository"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["dagflow_dagster.assets"]
+ignore_errors = true

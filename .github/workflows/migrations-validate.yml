@@ -1,0 +1,44 @@
+name: Migrations Validate
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  validate-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: dagflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dagflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Sync Python dependencies
+        run: uv sync --all-packages --dev
+
+      - name: Wait for PostgreSQL
+        run: bash ops/scripts/wait_for_postgres.sh localhost 5432 postgres dagflow
+
+      - name: Apply migrations
+        run: uv run python ops/scripts/manage_db.py migrate --dsn "postgresql://postgres:postgres@localhost:5432/dagflow"
+
+      - name: Apply seeds
+        run: uv run python ops/scripts/manage_db.py seed --dsn "postgresql://postgres:postgres@localhost:5432/dagflow"

@@ -1,0 +1,15 @@
+telemetry:
+  enabled: false
+
+local_artifact_storage:
+  base_dir: /opt/dagster/dagster_home/storage
+
+compute_logs:
+  module: dagster._core.storage.local_compute_log_manager
+  class: LocalComputeLogManager
+  config:
+    base_dir: /opt/dagster/dagster_home/compute_logs
+
+scheduler:
+  module: dagster._core.scheduler
+  class: DagsterDaemonScheduler

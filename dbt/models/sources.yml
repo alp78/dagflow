@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: sec_company_tickers
+      - name: sec_company_facts
+      - name: holdings_13f
+      - name: holdings_13f_filers
+
+  - name: review
+    schema: review
+    tables:
+      - name: security_master_daily
+      - name: shareholder_holdings_daily

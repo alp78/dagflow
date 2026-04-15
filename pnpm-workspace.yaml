@@ -1,0 +1,3 @@
+packages:
+  - apps/ui-react
+  - packages/shared-types

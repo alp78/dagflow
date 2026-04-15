@@ -1,0 +1,14 @@
+dagflow:
+  target: local
+  outputs:
+    local:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'pgbouncer') }}"
+      user: "{{ env_var('POSTGRES_USER', 'postgres') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'postgres') }}"
+      port: "{{ env_var('PGBOUNCER_PORT', '6432') | int }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'dagflow') }}"
+      schema: staging
+      threads: 4
+      connect_timeout: 10
+      keepalives_idle: 0

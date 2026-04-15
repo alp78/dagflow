@@ -1,0 +1,7 @@
+project_id         = "my-gcp-project"
+region             = "europe-west1"
+zone               = "europe-west1-b"
+api_image          = "europe-west1-docker.pkg.dev/my-gcp-project/test-dagflow-images/api:latest"
+ui_image           = "europe-west1-docker.pkg.dev/my-gcp-project/test-dagflow-images/ui:latest"
+db_user_password   = "replace-me"
+github_repository  = "org/dagflow"

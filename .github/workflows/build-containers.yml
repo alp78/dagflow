@@ -1,0 +1,21 @@
+name: Build Containers
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile:
+          - apps/api/Dockerfile
+          - apps/dagster/Dockerfile
+          - apps/ui-react/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build container
+        run: docker build --file ${{ matrix.dockerfile }} .

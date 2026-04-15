@@ -1,0 +1,34 @@
+name: dagflow
+version: 1.0.0
+config-version: 2
+
+profile: dagflow
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: target
+clean-targets:
+  - target
+  - dbt_packages
+  - logs
+
+models:
+  dagflow:
+    +materialized: table
+    staging:
+      +schema: staging
+    intermediate:
+      +schema: intermediate
+    marts:
+      +schema: marts
+    exports:
+      +schema: export
+
+snapshots:
+  dagflow:
+    +target_schema: marts
+
+on-run-end:
+  - "{{ log_dq_results(results) }}"
