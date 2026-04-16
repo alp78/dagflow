@@ -395,6 +395,10 @@ function monthLabel(date: Date): string {
   return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(date);
 }
 
+function monthValue(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function AvailabilityCalendar(props: {
   selectedDate: string;
   availableDates: Set<string>;
@@ -411,6 +415,13 @@ function AvailabilityCalendar(props: {
     return startOfMonth(parseIsoDate(seedDate));
   });
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    for (const isoDate of orderedDates) {
+      months.add(isoDate.slice(0, 7));
+    }
+    return [...months].sort((left, right) => left.localeCompare(right));
+  }, [orderedDates]);
 
   useEffect(() => {
     const seedDate = props.selectedDate || orderedDates.at(-1);
@@ -485,7 +496,20 @@ function AvailabilityCalendar(props: {
             >
               Prev
             </button>
-            <strong>{monthLabel(monthCursor)}</strong>
+            <div className="calendar-month-control">
+              <strong>{monthLabel(monthCursor)}</strong>
+              <select
+                className="calendar-month-select"
+                onChange={(event) => setMonthCursor(parseIsoDate(`${event.target.value}-01`))}
+                value={monthValue(monthCursor)}
+              >
+                {availableMonths.map((option) => (
+                  <option key={option} value={option}>
+                    {monthLabel(parseIsoDate(`${option}-01`))}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               className="ghost-button compact-button"
               disabled={!canMoveForward}

@@ -215,7 +215,7 @@ values
         6440218000,
         6440.218000
     )
-on conflict (run_id, cik) do nothing;
+on conflict (run_id, ticker) do nothing;
 
 insert into raw.holdings_13f_filers (
     run_id,

@@ -868,10 +868,28 @@ textarea {
   margin-bottom: 0.55rem;
 }
 
+.calendar-month-control {
+  align-items: center;
+  display: grid;
+  gap: 0.22rem;
+  justify-items: center;
+  min-width: 11rem;
+}
+
 .calendar-header strong {
   color: var(--text-primary);
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.calendar-month-select {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.2rem;
+  color: #11161d;
+  font-size: 0.74rem;
+  max-width: 100%;
+  padding: 0.18rem 0.35rem;
 }
 
 .compact-button {
