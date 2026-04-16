@@ -1,4 +1,9 @@
+-- depends_on: {{ ref('stg_13f_holdings') }}
+-- depends_on: {{ ref('int_shareholder_base') }}
+-- depends_on: {{ ref('dim_security') }}
 {{ config(materialized='table', schema='intermediate', tags=['shareholder_holdings', 'intermediate']) }}
+
+{% set security_run_id = var('dagflow_security_run_id', none) %}
 
 with holdings as (
   select * from {{ ref('stg_13f_holdings') }}
@@ -7,7 +12,11 @@ filers as (
   select * from {{ ref('int_shareholder_base') }}
 ),
 security as (
-  select * from {{ ref('dim_security') }}
+  select *
+  from {{ ref('dim_security') }}
+  {% if security_run_id %}
+  where run_id = '{{ security_run_id }}'::uuid
+  {% endif %}
 )
 select
   {{ dagflow_bigint_key(["h.run_id", "h.accession_number", "h.filer_cik", "h.security_identifier"]) }} as holding_id,
@@ -34,5 +43,5 @@ join filers f
  and f.filer_cik = h.filer_cik
  and f.accession_number = h.accession_number
 left join security s
-  on s.run_id = h.run_id
+  on s.business_date = h.business_date
  and s.ticker = h.security_identifier

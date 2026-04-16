@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite",
+    "build": "vite build --configLoader runner",
+    "dev": "vite --configLoader runner",
     "format": "prettier --check src index.html",
     "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",

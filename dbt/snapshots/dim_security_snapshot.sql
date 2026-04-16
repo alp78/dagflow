@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('dim_security') }}
 {% snapshot dim_security_snapshot %}
   {{
     config(

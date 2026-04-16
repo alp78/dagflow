@@ -12,10 +12,10 @@ class Database:
     def __init__(self, dsn: str) -> None:
         self.pool = ConnectionPool(
             conninfo=dsn,
-            open=False,
+            open=True,
             min_size=1,
             max_size=10,
-            kwargs={"row_factory": dict_row},
+            kwargs={"row_factory": dict_row, "prepare_threshold": None},
         )
 
     @contextmanager

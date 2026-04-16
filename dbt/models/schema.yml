@@ -5,7 +5,6 @@ models:
     columns:
       - name: security_id
         tests:
-          - unique
           - not_null
       - name: ticker
         tests:

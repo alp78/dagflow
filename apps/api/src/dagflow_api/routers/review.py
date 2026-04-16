@@ -3,11 +3,17 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from dagflow_api.dependencies import get_repository
 from dagflow_api.repository import DagflowRepository
-from dagflow_api.schemas import CellEditRequest, RecalcRequest, ReviewRowsResponse, RowEditRequest
+from dagflow_api.schemas import (
+    CellEditRequest,
+    RecalcRequest,
+    ReviewRowsResponse,
+    ReviewSnapshotSummary,
+    RowEditRequest,
+)
 
 router = APIRouter(prefix="/review", tags=["review"])
 
@@ -17,7 +23,7 @@ def list_review_rows(
     dataset_code: str,
     run_id: UUID | None = Query(default=None),
     business_date: date | None = Query(default=None),
-    limit: int = Query(default=200, ge=1, le=1000),
+    limit: int = Query(default=200, ge=1, le=5000),
     repository: DagflowRepository = Depends(get_repository),
 ) -> ReviewRowsResponse:
     review_table = repository.resolve_review_table(dataset_code)
@@ -25,12 +31,24 @@ def list_review_rows(
     return ReviewRowsResponse(dataset_code=dataset_code, review_table=review_table, rows=rows)
 
 
+@router.get("/{dataset_code}/snapshots", response_model=list[ReviewSnapshotSummary])
+def list_review_snapshots(
+    dataset_code: str,
+    limit: int = Query(default=5000, ge=1, le=5000),
+    repository: DagflowRepository = Depends(get_repository),
+) -> list[ReviewSnapshotSummary]:
+    return repository.list_review_snapshots(dataset_code, limit)
+
+
 @router.post("/cell-edit")
 def apply_cell_edit(
     request: CellEditRequest,
     repository: DagflowRepository = Depends(get_repository),
 ) -> dict[str, object]:
-    return repository.apply_cell_edit(request.model_dump())
+    try:
+        return repository.apply_cell_edit(request.model_dump())
+    except PermissionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.post("/row-edit")
@@ -38,7 +56,10 @@ def apply_row_edit(
     request: RowEditRequest,
     repository: DagflowRepository = Depends(get_repository),
 ) -> dict[str, object]:
-    return repository.apply_row_edit(request.model_dump())
+    try:
+        return repository.apply_row_edit(request.model_dump())
+    except PermissionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/edited-cells")
@@ -64,7 +85,10 @@ def recalc_security(
     request: RecalcRequest,
     repository: DagflowRepository = Depends(get_repository),
 ) -> dict[str, object]:
-    return repository.recalc_security(request.row_id, request.changed_by)
+    try:
+        return repository.recalc_security(request.row_id, request.changed_by)
+    except PermissionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.post("/recalculate/holding")
@@ -72,4 +96,7 @@ def recalc_holding(
     request: RecalcRequest,
     repository: DagflowRepository = Depends(get_repository),
 ) -> dict[str, object]:
-    return repository.recalc_holding(request.row_id, request.changed_by)
+    try:
+        return repository.recalc_holding(request.row_id, request.changed_by)
+    except PermissionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error

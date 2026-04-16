@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('int_holding_with_security') }}
 {{ config(materialized='table', schema='marts', tags=['shareholder_holdings', 'marts']) }}
 
 with holdings as (

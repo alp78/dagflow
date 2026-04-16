@@ -11,6 +11,13 @@ class DagsterSettings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@pgbouncer:6432/dagflow"
     direct_database_url: str = "postgresql://postgres:postgres@postgres:5432/dagflow"
     dbt_profiles_dir: str = "/workspace/dbt"
+    export_root_dir: str = "/workspace/generated_exports"
+    edgar_identity: str = "Dagflow local dev support@dagflow.local"
+    sec_13f_lookback_days: int = 14
+    sec_13f_filing_limit: int = 50
+    sec_security_focus_limit: int = 80
+    openfigi_api_key: str | None = None
+    finnhub_api_key: str | None = None
 
     @property
     def dbt_project_dir(self) -> Path:

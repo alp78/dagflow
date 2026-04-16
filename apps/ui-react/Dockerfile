@@ -5,11 +5,13 @@ WORKDIR /workspace
 RUN corepack enable
 
 COPY package.json pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml pnpm-lock.yaml
 COPY apps/ui-react/package.json apps/ui-react/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
-COPY . .
 
-RUN pnpm install --no-frozen-lockfile
+RUN CI=true pnpm install --no-frozen-lockfile
+
+COPY . .
 
 EXPOSE 3000
 

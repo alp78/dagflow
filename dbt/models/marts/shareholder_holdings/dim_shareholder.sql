@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('int_shareholder_base') }}
 {{ config(materialized='table', schema='marts', tags=['shareholder_holdings', 'marts']) }}
 
 select

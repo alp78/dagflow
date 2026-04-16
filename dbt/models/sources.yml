@@ -5,12 +5,30 @@ sources:
     schema: raw
     tables:
       - name: sec_company_tickers
+        meta:
+          dagster:
+            asset_key: ["security_master__sec_company_tickers_raw"]
       - name: sec_company_facts
+        meta:
+          dagster:
+            asset_key: ["security_master__sec_company_facts_raw"]
       - name: holdings_13f
+        meta:
+          dagster:
+            asset_key: ["shareholder_holdings__holdings_13f_raw"]
       - name: holdings_13f_filers
+        meta:
+          dagster:
+            asset_key: ["shareholder_holdings__holdings_13f_filers_raw"]
 
   - name: review
     schema: review
     tables:
       - name: security_master_daily
+        meta:
+          dagster:
+            asset_key: ["security_master__review_snapshot"]
       - name: shareholder_holdings_daily
+        meta:
+          dagster:
+            asset_key: ["shareholder_holdings__review_snapshot"]

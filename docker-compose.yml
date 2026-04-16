@@ -76,7 +76,7 @@ services:
       context: .
       dockerfile: apps/dagster/Dockerfile
     command: >
-      uv run dagster api grpc
+      dagster api grpc
       -h 0.0.0.0
       -p 4000
       -m dagflow_dagster.definitions
@@ -86,6 +86,12 @@ services:
       DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/dagflow}
       DAGSTER_HOME: /opt/dagster/dagster_home
       DBT_PROFILES_DIR: /workspace/dbt
+      EDGAR_IDENTITY: ${EDGAR_IDENTITY:-Dagflow local dev support@dagflow.local}
+      SEC_13F_LOOKBACK_DAYS: ${SEC_13F_LOOKBACK_DAYS:-14}
+      SEC_13F_FILING_LIMIT: ${SEC_13F_FILING_LIMIT:-50}
+      SEC_SECURITY_FOCUS_LIMIT: ${SEC_SECURITY_FOCUS_LIMIT:-80}
+      OPENFIGI_API_KEY: ${OPENFIGI_API_KEY:-}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio123}
@@ -105,7 +111,10 @@ services:
     build:
       context: .
       dockerfile: apps/dagster/Dockerfile
-    command: uv run dagster-webserver -h 0.0.0.0 -p 3000 -w /workspace/apps/dagster/workspace.yaml
+    command: >
+      /bin/sh -c
+      "cp /workspace/apps/dagster/dagster.yaml /opt/dagster/dagster_home/dagster.yaml
+      && dagster-webserver -h 0.0.0.0 -p 3000 -w /workspace/apps/dagster/workspace.yaml"
     environment:
       APP_ENV: ${APP_ENV:-local}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@pgbouncer:6432/dagflow}
@@ -124,7 +133,10 @@ services:
     build:
       context: .
       dockerfile: apps/dagster/Dockerfile
-    command: uv run dagster-daemon run -w /workspace/apps/dagster/workspace.yaml
+    command: >
+      /bin/sh -c
+      "cp /workspace/apps/dagster/dagster.yaml /opt/dagster/dagster_home/dagster.yaml
+      && dagster-daemon run -w /workspace/apps/dagster/workspace.yaml"
     environment:
       APP_ENV: ${APP_ENV:-local}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@pgbouncer:6432/dagflow}

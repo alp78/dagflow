@@ -1,5 +1,9 @@
 {{ config(materialized='table', schema='staging', tags=['shareholder_holdings', 'staging']) }}
 
+with current_run as (
+  select {{ dagflow_pipeline_run_id('shareholder_holdings') }} as run_id
+)
+
 select
   raw_id,
   pipeline_code,
@@ -15,3 +19,4 @@ select
   row_hash,
   loaded_at
 from {{ source('raw', 'holdings_13f_filers') }}
+where run_id = (select run_id from current_run)

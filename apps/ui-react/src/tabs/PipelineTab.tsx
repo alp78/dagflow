@@ -7,7 +7,9 @@ import { api, dagsterBaseUrl } from "../api";
 export function PipelineTab() {
   const [pipelines, setPipelines] = useState<PipelineView[]>([]);
   const [error, setError] = useState<string>("");
+  const [info, setInfo] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
 
   async function loadPipelines() {
     setLoading(true);
@@ -25,26 +27,49 @@ export function PipelineTab() {
     void loadPipelines();
   }, []);
 
-  async function handleToggle(pipelineCode: string, activate: boolean) {
-    await api.togglePipeline(pipelineCode, activate);
-    await loadPipelines();
+  async function handleResetDemo() {
+    setResetting(true);
+    setError("");
+    setInfo("");
+    try {
+      const result = await api.resetDemo();
+      setInfo(
+        `Reset the latest daily run for business date ${String(result.business_date ?? "current")} and kept historical SCD2 data intact.`,
+      );
+      await loadPipelines();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset the latest daily run.");
+    } finally {
+      setResetting(false);
+    }
   }
 
   return (
-    <section className="tab-grid">
+    <section className="tab-grid pipeline-layout">
       <div className="panel">
         <div className="panel-header">
           <div>
             <h2>Pipeline registry</h2>
-            <p>Schedules, adapter bindings, and activation state from the control tables.</p>
+            <p>Schedules, adapter bindings, and live workflow state from the control tables.</p>
           </div>
-          <button className="ghost-button" onClick={() => void loadPipelines()} type="button">
-            Refresh
-          </button>
+          <div className="button-row">
+            <button className="ghost-button" onClick={() => void loadPipelines()} type="button">
+              Refresh
+            </button>
+            <button
+              className="secondary-button"
+              onClick={() => void handleResetDemo()}
+              type="button"
+              disabled={resetting}
+            >
+              {resetting ? "Resetting…" : "Reset latest daily run"}
+            </button>
+          </div>
         </div>
 
         {loading ? <p className="muted">Loading pipelines…</p> : null}
         {error ? <p className="error-copy">{error}</p> : null}
+        {info ? <p className="muted">{info}</p> : null}
 
         <div className="card-grid">
           {pipelines.map((pipeline) => (
@@ -75,16 +100,11 @@ export function PipelineTab() {
                   <dt>Last business date</dt>
                   <dd>{pipeline.last_business_date ?? "n/a"}</dd>
                 </div>
+                <div>
+                  <dt>Last run ID</dt>
+                  <dd>{pipeline.last_run_id ?? "n/a"}</dd>
+                </div>
               </dl>
-              <div className="button-row">
-                <button
-                  className="primary-button"
-                  onClick={() => void handleToggle(pipeline.pipeline_code, !pipeline.is_enabled)}
-                  type="button"
-                >
-                  {pipeline.is_enabled ? "Deactivate" : "Activate"}
-                </button>
-              </div>
             </article>
           ))}
         </div>
@@ -94,7 +114,6 @@ export function PipelineTab() {
         <div className="panel-header">
           <div>
             <h2>Dagster control plane</h2>
-            <p>Embedded locally so reviewers can see orchestration state without leaving Dagflow.</p>
           </div>
         </div>
         <iframe src={dagsterBaseUrl} title="Dagster UI" className="dagster-frame" />
