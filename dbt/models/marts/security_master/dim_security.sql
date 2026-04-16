@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('int_security_attributes') }}
 {{ config(materialized='table', schema='marts', tags=['security_master', 'marts']) }}
 
 select

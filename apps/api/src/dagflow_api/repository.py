@@ -68,7 +68,13 @@ def _range_label(lower: float, upper: float, *, percent: bool = False) -> str:
     return f"{_format_value(lower, percent=percent)}-{_format_value(upper, percent=percent)}"
 
 
-def _metric(label: str, value: float, note: str | None = None, *, percent: bool = False) -> DashboardMetric:
+def _metric(
+    label: str,
+    value: float,
+    note: str | None = None,
+    *,
+    percent: bool = False,
+) -> DashboardMetric:
     return DashboardMetric(
         label=label,
         value=value,
@@ -164,7 +170,10 @@ def _bucket_points(values: list[int], *, upper_bounds: list[int]) -> list[Dashbo
     points: list[DashboardChartPoint] = []
     for index, upper_bound in enumerate(upper_bounds):
         lower_bound = 1 if index == 0 else upper_bounds[index - 1] + 1
-        label = f"{lower_bound}-{upper_bound}" if index < len(upper_bounds) - 1 else f"{lower_bound}+"
+        if index < len(upper_bounds) - 1:
+            label = f"{lower_bound}-{upper_bound}"
+        else:
+            label = f"{lower_bound}+"
         count = counts[index]
         points.append(
             DashboardChartPoint(
@@ -309,7 +318,10 @@ class DagflowRepository:
                and runs.run_id = snapshot_rows.run_id
             left join current_snapshot
                 on true
-            order by snapshot_rows.business_date desc, snapshot_rows.updated_at desc nulls last, snapshot_rows.run_id desc
+            order by
+                snapshot_rows.business_date desc,
+                snapshot_rows.updated_at desc nulls last,
+                snapshot_rows.run_id desc
             limit %s
             """
         ).format(Identifier(schema_name), Identifier(table_name))
@@ -369,7 +381,8 @@ class DagflowRepository:
             raise PermissionError(f"No review snapshots exist for {dataset_code}.")
         if row["run_id"] != run_id or row["business_date"] != business_date:
             raise PermissionError(
-                "Historical review snapshots are read-only. Only the current daily snapshot can be edited or validated."
+                "Historical review snapshots are read-only. "
+                "Only the current daily snapshot can be edited or validated."
             )
 
     def apply_cell_edit(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -581,7 +594,8 @@ class DagflowRepository:
                         issuer_name,
                         exchange,
                         coalesce(investable_shares, 0)::double precision as investable_shares,
-                        coalesce(review_materiality_score, 0)::double precision as review_materiality_score,
+                        coalesce(review_materiality_score, 0)::double precision
+                            as review_materiality_score,
                         approval_state,
                         coalesce(manual_edit_count, 0) as manual_edit_count
                     from review.security_master_daily
@@ -597,7 +611,11 @@ class DagflowRepository:
                     select
                         filer_name,
                         security_identifier,
-                        coalesce(reviewed_market_value_override, reviewed_market_value_raw, 0)::double precision
+                        coalesce(
+                            reviewed_market_value_override,
+                            reviewed_market_value_raw,
+                            0
+                        )::double precision
                             as reviewed_market_value,
                         coalesce(portfolio_weight, 0)::double precision as portfolio_weight,
                         approval_state,
@@ -609,9 +627,15 @@ class DagflowRepository:
                 )
                 holdings_rows = list(cursor.fetchall())
 
-        exchange_counter = Counter((row["exchange"] or "Unknown") for row in security_rows)
-        security_approval_counter = Counter((row["approval_state"] or "unknown") for row in security_rows)
-        holdings_approval_counter = Counter((row["approval_state"] or "unknown") for row in holdings_rows)
+        exchange_counter = Counter(
+            (row["exchange"] or "Unknown") for row in security_rows
+        )
+        security_approval_counter = Counter(
+            (row["approval_state"] or "unknown") for row in security_rows
+        )
+        holdings_approval_counter = Counter(
+            (row["approval_state"] or "unknown") for row in holdings_rows
+        )
 
         holder_count_by_security = Counter(
             (row["security_identifier"] or "Unknown") for row in holdings_rows
@@ -687,7 +711,10 @@ class DagflowRepository:
             )
             for filer in sorted(
                 filer_rollups.values(),
-                key=lambda item: (int(item["position_count"]), _to_float(item["total_market_value"])),
+                key=lambda item: (
+                    int(item["position_count"]),
+                    _to_float(item["total_market_value"]),
+                ),
                 reverse=True,
             )[:8]
         ]

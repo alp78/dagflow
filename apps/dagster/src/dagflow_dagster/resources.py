@@ -724,7 +724,9 @@ class ControlPlaneResource(ConfigurableResource):
         }
         delete_queries = {
             "security_master": "delete from review.security_master_daily where run_id = %s",
-            "shareholder_holdings": "delete from review.shareholder_holdings_daily where run_id = %s",
+            "shareholder_holdings": (
+                "delete from review.shareholder_holdings_daily where run_id = %s"
+            ),
         }
         query = queries.get(dataset_code)
         delete_query = delete_queries.get(dataset_code)
@@ -876,7 +878,9 @@ class ControlPlaneResource(ConfigurableResource):
         }
         delete_queries = {
             "security_master": "delete from review.security_master_daily where run_id = %s",
-            "shareholder_holdings": "delete from review.shareholder_holdings_daily where run_id = %s",
+            "shareholder_holdings": (
+                "delete from review.shareholder_holdings_daily where run_id = %s"
+            ),
         }
         query = queries.get(dataset_code)
         delete_query = delete_queries.get(dataset_code)

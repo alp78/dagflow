@@ -230,7 +230,7 @@ def main() -> int:
                     f"{holdings_review_count} review rows from {previous_holdings_review_run_id}"
                 )
                 previous_holdings_review_run_id = holdings_run_id
-            for pipeline_code, dataset_code, run_id in (
+            for _pipeline_code, _dataset_code, run_id in (
                 ("security_master", "security_master", security_run_id),
                 ("shareholder_holdings", "shareholder_holdings", holdings_run_id),
             ):
@@ -241,7 +241,9 @@ def main() -> int:
                         "mode": "backfill",
                         "change": "none",
                         "review_snapshot_published": args.publish_review_snapshots,
-                        "review_snapshot_mode": "cloned" if args.publish_review_snapshots else "none",
+                        "review_snapshot_mode": (
+                            "cloned" if args.publish_review_snapshots else "none"
+                        ),
                     },
                 )
             continue
