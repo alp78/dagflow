@@ -30,7 +30,7 @@ select
   h.reviewed_market_value_raw,
   h.source_confidence_raw,
   round(h.reviewed_market_value_raw / nullif(h.shares_held_raw, 0), 6) as derived_price_per_share,
-  round(h.shares_held_raw / nullif(h.shares_outstanding_raw, 0), 6) as holding_pct_of_outstanding,
+  round(h.shares_held_raw / nullif(h.shares_outstanding_raw, 0), 8) as holding_pct_of_outstanding,
   round(h.reviewed_market_value_raw / nullif(p.total_market_value, 0), 6) as portfolio_weight,
   {{ dagflow_row_hash(["h.holding_id", "h.run_id", "h.security_identifier", "h.shares_held_raw", "h.reviewed_market_value_raw"]) }} as row_hash
 from holdings h

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Dagflow FastAPI backend"
 requires-python = ">=3.13"
 dependencies = [
+  "dagflow-dagster",
   "dagflow-pipeline-framework",
   "fastapi>=0.115.12",
   "pydantic-settings>=2.9.1",
@@ -13,6 +14,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
+dagflow-dagster = { workspace = true }
 dagflow-pipeline-framework = { workspace = true }
 
 [build-system]

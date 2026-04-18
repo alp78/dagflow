@@ -14,21 +14,53 @@ class Sec13FBulkAdapter:
     def build_sources(self, business_date: date) -> list[SourceDescriptor]:
         return [
             SourceDescriptor(
+                pipeline_code="shareholder_holdings",
+                dataset_code="shareholder_holdings",
                 source_name="holdings_13f",
                 landing_table="raw.holdings_13f",
                 source_url=self.filings_url,
-                object_key=f"shareholder_holdings/{business_date.isoformat()}/13f/holdings_index",
+                object_key=(
+                    f"shareholder_holdings/holdings_13f/"
+                    f"{business_date.isoformat()}/holdings_13f.csv"
+                ),
+                file_name="holdings_13f.csv",
                 business_date=business_date,
                 ingestion_mode="edgar_filing_pull",
-                expected_format="xml",
+                expected_format="csv",
+                canonical_object_key=(
+                    f"shareholder_holdings/holdings_13f/"
+                    f"{business_date.isoformat()}/holdings_13f.parquet"
+                ),
+                canonical_file_name="holdings_13f.parquet",
+                manifest_object_key=(
+                    f"shareholder_holdings/holdings_13f/"
+                    f"{business_date.isoformat()}/manifest.json"
+                ),
+                manifest_file_name="manifest.json",
             ),
             SourceDescriptor(
+                pipeline_code="shareholder_holdings",
+                dataset_code="shareholder_holdings",
                 source_name="holdings_13f_filers",
                 landing_table="raw.holdings_13f_filers",
                 source_url=self.filings_url,
-                object_key=f"shareholder_holdings/{business_date.isoformat()}/13f/filers_index",
+                object_key=(
+                    f"shareholder_holdings/holdings_13f_filers/"
+                    f"{business_date.isoformat()}/holdings_13f_filers.csv"
+                ),
+                file_name="holdings_13f_filers.csv",
                 business_date=business_date,
                 ingestion_mode="edgar_filing_pull",
-                expected_format="xml",
+                expected_format="csv",
+                canonical_object_key=(
+                    f"shareholder_holdings/holdings_13f_filers/"
+                    f"{business_date.isoformat()}/holdings_13f_filers.parquet"
+                ),
+                canonical_file_name="holdings_13f_filers.parquet",
+                manifest_object_key=(
+                    f"shareholder_holdings/holdings_13f_filers/"
+                    f"{business_date.isoformat()}/manifest.json"
+                ),
+                manifest_file_name="manifest.json",
             ),
         ]

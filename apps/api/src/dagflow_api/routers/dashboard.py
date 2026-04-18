@@ -1,30 +1,19 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 
 from dagflow_api.dependencies import get_repository
 from dagflow_api.repository import DagflowRepository
-from dagflow_api.schemas import DashboardOverview, DashboardSnapshot
+from dagflow_api.schemas import DashboardDatasetSnapshot
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-@router.get("/overview", response_model=DashboardOverview)
-def get_dashboard_overview(
-    repository: DagflowRepository = Depends(get_repository),
-) -> DashboardOverview:
-    return repository.get_dashboard_overview()
-
-
-@router.get("/snapshot", response_model=DashboardSnapshot)
+@router.get("/current/{dataset_code}", response_model=DashboardDatasetSnapshot)
 def get_dashboard_snapshot(
+    dataset_code: Literal["security_master", "shareholder_holdings"],
     repository: DagflowRepository = Depends(get_repository),
-) -> DashboardSnapshot:
-    return repository.get_dashboard_snapshot()
-
-
-@router.get("/securities")
-def get_security_dimension(
-    repository: DagflowRepository = Depends(get_repository),
-) -> list[dict[str, object]]:
-    return repository.list_security_dimension()
+) -> DashboardDatasetSnapshot:
+    return repository.get_dashboard_dataset_snapshot(dataset_code)

@@ -321,6 +321,7 @@ name = "dagflow-api"
 version = "0.1.0"
 source = { editable = "apps/api" }
 dependencies = [
+    { name = "dagflow-dagster" },
     { name = "dagflow-pipeline-framework" },
     { name = "fastapi" },
     { name = "psycopg", extra = ["binary"] },
@@ -331,6 +332,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "dagflow-dagster", editable = "apps/dagster" },
     { name = "dagflow-pipeline-framework", editable = "packages/pipeline-framework" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9" },
@@ -354,6 +356,7 @@ dependencies = [
     { name = "httpx" },
     { name = "pandas" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "pyarrow" },
     { name = "pydantic-settings" },
 ]
 
@@ -369,6 +372,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pandas", specifier = ">=3.0.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9" },
+    { name = "pyarrow", specifier = ">=19.0.1" },
     { name = "pydantic-settings", specifier = ">=2.9.1" },
 ]
 

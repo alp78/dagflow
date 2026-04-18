@@ -6,11 +6,13 @@ with current_run as (
 
 select
   raw_id,
+  source_file_id,
   pipeline_code,
   dataset_code,
   run_id,
   business_date,
   source_record_id,
+  source_payload,
   source_payload_hash,
   cik,
   fact_name,

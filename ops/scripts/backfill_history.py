@@ -29,12 +29,11 @@ def load_env_file(env_path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
-def business_days(start_date: date, end_date: date) -> list[date]:
+def calendar_days(start_date: date, end_date: date) -> list[date]:
     days: list[date] = []
     current = start_date
     while current <= end_date:
-        if current.weekday() < 5:
-            days.append(current)
+        days.append(current)
         current += timedelta(days=1)
     return days
 
@@ -93,7 +92,7 @@ def digest_rows(rows: list[dict[str, object]]) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Replay two years of business-day Dagflow history and populate SCD2 snapshots."
+        description="Replay Dagflow daily history and populate SCD2 snapshots."
     )
     parser.add_argument("--years", type=int, default=2)
     parser.add_argument("--end-date", type=date.fromisoformat, default=date.today())
@@ -110,6 +109,10 @@ def parse_args() -> argparse.Namespace:
         "--export-root-dir",
         default=os.getenv("EXPORT_ROOT_DIR") or str(ROOT / "generated_exports"),
     )
+    parser.add_argument(
+        "--landing-root-dir",
+        default=os.getenv("LANDING_ROOT_DIR") or str(ROOT / "source_landing"),
+    )
     parser.add_argument("--edgar-identity", default=os.getenv("EDGAR_IDENTITY") or "")
     parser.add_argument("--openfigi-api-key", default=os.getenv("OPENFIGI_API_KEY") or None)
     parser.add_argument("--finnhub-api-key", default=os.getenv("FINNHUB_API_KEY") or None)
@@ -122,16 +125,17 @@ def main() -> int:
     args = parse_args()
 
     start_date = args.start_date or (args.end_date - timedelta(days=(365 * args.years) - 1))
-    days = business_days(start_date, args.end_date)
+    days = calendar_days(start_date, args.end_date)
     if args.limit_days:
         days = days[: args.limit_days]
     if not days:
-        print("No business days to replay.", file=sys.stderr, flush=True)
+        print("No calendar days to replay.", file=sys.stderr, flush=True)
         return 1
 
     control_plane = ControlPlaneResource(
         direct_database_url=args.database_url,
         export_root_dir=args.export_root_dir,
+        landing_root_dir=args.landing_root_dir,
         edgar_identity=args.edgar_identity or "Dagflow local dev support@dagflow.local",
         sec_13f_lookback_days=14,
         sec_13f_filing_limit=max(50, args.filing_limit),
@@ -144,7 +148,7 @@ def main() -> int:
 
     log(
         f"Preparing historical filing cache for {days[0].isoformat()} -> {days[-1].isoformat()} "
-        f"({len(days)} business days)..."
+        f"({len(days)} calendar days)..."
     )
     historical_filings = control_plane.ingestion.historical_13f_filings(
         days[0],
@@ -174,6 +178,26 @@ def main() -> int:
         fact_rows = control_plane.ingestion.build_security_master_facts_from_ticker_rows(
             business_date,
             ticker_rows,
+        )
+        control_plane.capture_source_file(
+            "sec_company_tickers",
+            business_date,
+            rows=ticker_rows,
+        )
+        control_plane.capture_source_file(
+            "sec_company_facts",
+            business_date,
+            rows=fact_rows,
+        )
+        control_plane.capture_source_file(
+            "holdings_13f_filers",
+            business_date,
+            rows=snapshot.filer_records,
+        )
+        control_plane.capture_source_file(
+            "holdings_13f",
+            business_date,
+            rows=snapshot.holding_records,
         )
         security_hash = digest_rows(ticker_rows + fact_rows)
         holdings_hash = digest_rows(snapshot.filer_records + snapshot.holding_records)
@@ -264,16 +288,8 @@ def main() -> int:
                 "  security_master: loading "
                 f"{len(ticker_rows)} ticker rows and {len(fact_rows)} fact rows"
             )
-            control_plane.load_security_master_ticker_records(
-                security_run_id,
-                business_date,
-                ticker_rows,
-            )
-            control_plane.load_security_master_fact_records(
-                security_run_id,
-                business_date,
-                fact_rows,
-            )
+            control_plane.load_security_master_tickers(security_run_id, business_date)
+            control_plane.load_security_master_facts(security_run_id, business_date)
             log("  security_master: running dbt build + snapshot")
             run_dbt_command(
                 dbt_executable,
@@ -343,16 +359,8 @@ def main() -> int:
                 f"{len(snapshot.filer_records)} filer rows and "
                 f"{len(snapshot.holding_records)} holding rows"
             )
-            control_plane.load_shareholder_filer_records(
-                holdings_run_id,
-                business_date,
-                snapshot.filer_records,
-            )
-            control_plane.load_shareholder_holding_records(
-                holdings_run_id,
-                business_date,
-                snapshot.holding_records,
-            )
+            control_plane.load_shareholder_filers(holdings_run_id, business_date)
+            control_plane.load_shareholder_holdings(holdings_run_id, business_date)
             log("  shareholder_holdings: running dbt build + snapshot")
             run_dbt_command(
                 dbt_executable,
@@ -413,7 +421,7 @@ def main() -> int:
             )
             raise
 
-    log(f"Backfill complete for {len(days)} business days ending {days[-1].isoformat()}.")
+    log(f"Backfill complete for {len(days)} calendar days ending {days[-1].isoformat()}.")
     return 0
 
 

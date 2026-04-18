@@ -31,10 +31,30 @@ select
   h.filer_cik,
   f.filer_name,
   h.security_identifier,
-  s.issuer_name as security_name,
+  coalesce(s.issuer_name, h.source_payload ->> 'issuer_name') as security_name,
   h.shares_held as shares_held_raw,
   h.market_value as reviewed_market_value_raw,
-  0.95::numeric(12, 6) as source_confidence_raw,
+  round(
+    greatest(
+      0,
+      least(
+        1,
+        (
+          coalesce(
+            case
+              when jsonb_typeof(h.source_payload -> 'ticker_sources') = 'array'
+                then jsonb_array_length(h.source_payload -> 'ticker_sources')
+              else 0
+            end,
+            0
+          )
+          + case when h.cusip is not null then 1 else 0 end
+          + case when s.security_id is not null then 1 else 0 end
+        )::numeric / 3.0
+      )
+    ),
+    6
+  ) as source_confidence_raw,
   s.shares_outstanding_raw,
   {{ dagflow_row_hash(["h.run_id", "h.accession_number", "h.filer_cik", "h.security_identifier", "h.shares_held", "h.market_value"]) }} as row_hash
 from holdings h

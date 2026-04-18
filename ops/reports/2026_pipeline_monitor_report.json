@@ -1,0 +1,98 @@
+{
+  "start_date": "2026-01-01",
+  "end_date": "2026-01-01",
+  "requested_days": 1,
+  "processed_days": 1,
+  "export_wait_completed": true,
+  "exported_run_count": 2,
+  "expected_exported_run_count": 2,
+  "failures": [],
+  "states": [
+    {
+      "pipeline_code": "security_master",
+      "dataset_code": "security_master",
+      "run_id": "909aee82-09b9-5be0-b6c1-c2aac5175a52",
+      "business_date": "2026-01-01",
+      "review_state": "exported"
+    },
+    {
+      "pipeline_code": "shareholder_holdings",
+      "dataset_code": "shareholder_holdings",
+      "run_id": "857e919a-a909-5560-993f-efac66798a83",
+      "business_date": "2026-01-01",
+      "review_state": "exported"
+    }
+  ],
+  "days": [
+    {
+      "business_date": "2026-01-01",
+      "security_run_id": "909aee82-09b9-5be0-b6c1-c2aac5175a52",
+      "holdings_run_id": "857e919a-a909-5560-993f-efac66798a83",
+      "landed_files": {
+        "sec_company_tickers": {
+          "storage_path": "/home/alex/dagflow/source_landing/security_master/sec_company_tickers/2026-01-01/sec_company_tickers.csv",
+          "row_count": 80
+        },
+        "sec_company_facts": {
+          "storage_path": "/home/alex/dagflow/source_landing/security_master/sec_company_facts/2026-01-01/sec_company_facts.csv",
+          "row_count": 79
+        },
+        "holdings_13f": {
+          "storage_path": "/home/alex/dagflow/source_landing/shareholder_holdings/holdings_13f/2026-01-01/holdings_13f.csv",
+          "row_count": 3193
+        },
+        "holdings_13f_filers": {
+          "storage_path": "/home/alex/dagflow/source_landing/shareholder_holdings/holdings_13f_filers/2026-01-01/holdings_13f_filers.csv",
+          "row_count": 57
+        }
+      },
+      "security_review_rows": 80,
+      "holdings_review_rows": 596,
+      "security_issue_count": 16,
+      "holdings_issue_count": 41,
+      "security_edits": 24,
+      "holdings_edits": 179,
+      "validation_states": {
+        "security_master": "approved",
+        "shareholder_holdings": "approved"
+      },
+      "export_files": {
+        "security_master": "/home/alex/dagflow/generated_exports/security-master/2026-01-01/security_master_2026-01-01.csv",
+        "shareholder_holdings": "/home/alex/dagflow/generated_exports/shareholder-holdings/2026-01-01/shareholder_holdings_2026-01-01.csv"
+      },
+      "contract_checks": {
+        "security_master": {
+          "exists": true,
+          "row_count": 80,
+          "headers_match": true,
+          "headers": [
+            "business_date",
+            "ticker",
+            "issuer_name",
+            "investable_shares",
+            "review_materiality_score"
+          ],
+          "meets_min_rows": true,
+          "export_table_rows": 80,
+          "row_count_matches_export_table": true
+        },
+        "shareholder_holdings": {
+          "exists": true,
+          "row_count": 596,
+          "headers_match": true,
+          "headers": [
+            "business_date",
+            "filer_name",
+            "security_name",
+            "shares_held",
+            "holding_pct_of_outstanding"
+          ],
+          "meets_min_rows": true,
+          "export_table_rows": 596,
+          "row_count_matches_export_table": true
+        }
+      },
+      "notes": []
+    }
+  ]
+}

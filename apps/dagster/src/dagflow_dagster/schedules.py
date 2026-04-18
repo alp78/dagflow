@@ -18,16 +18,10 @@ def build_pipeline_sensor(job: Any, pipeline_code: str) -> Any:
         default_status=DefaultSensorStatus.RUNNING,
         required_resource_keys={"control_plane"},
     )
-    def _sensor(context: SensorEvaluationContext) -> Any:
-        control_plane = context.resources.control_plane
-        if not control_plane.pipeline_enabled(pipeline_code):
-            yield SkipReason(f"{pipeline_code} is disabled in control.pipeline_registry")
-            return
-        business_date = control_plane.current_business_date()
-        run_key = f"{pipeline_code}:{business_date.isoformat()}"
-        yield RunRequest(
-            run_key=run_key,
-            tags={"pipeline_code": pipeline_code, "business_date": business_date.isoformat()},
+    def _sensor(_context: SensorEvaluationContext) -> Any:
+        yield SkipReason(
+            f"{pipeline_code} is loaded explicitly from landed source dates, "
+            "not from current_date sensors."
         )
 
     return _sensor

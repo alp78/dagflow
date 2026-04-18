@@ -1,3 +1,4 @@
+-- depends_on: {{ ref('dim_security') }}
 {{ config(tags=['security_master']) }}
 
 select

@@ -10,16 +10,19 @@ def test_group_for_resource_path_maps_layers() -> None:
         group_for_resource_path(
             "models/staging/security_master/stg_sec_company_tickers.sql"
         )
-        == "silver"
+        == "warehouse_transform"
     )
     assert (
         group_for_resource_path("models/intermediate/shareholder_holdings/int_holding_with_security.sql")
-        == "silver"
+        == "warehouse_transform"
     )
-    assert group_for_resource_path("models/marts/security_master/dim_security.sql") == "gold"
+    assert (
+        group_for_resource_path("models/marts/security_master/dim_security.sql")
+        == "warehouse_transform"
+    )
     assert (
         group_for_resource_path("models/exports/shareholder_holdings/shareholder_holdings_final.sql")
-        == "gold"
+        == "validated_export"
     )
 
 
@@ -66,5 +69,29 @@ def test_translator_prefixes_model_asset_keys_by_pipeline() -> None:
         }
     )
 
-    assert security_key.path == ["security_master__dim_security"]
-    assert holdings_key.path == ["shareholder_holdings__fact_shareholder_holding"]
+    assert security_key.path == ["security_master__daily_security_master"]
+    assert holdings_key.path == ["shareholder_holdings__daily_holdings"]
+
+
+def test_translator_adds_business_context_to_assets() -> None:
+    translator = DagflowDbtTranslator()
+
+    resource_props = {
+        "name": "int_security_attributes",
+        "resource_type": "model",
+        "tags": ["security_master"],
+        "original_file_path": "models/intermediate/security_master/int_security_attributes.sql",
+        "alias": "int_security_attributes",
+        "config": {"materialized": "table"},
+    }
+
+    description = translator.get_description(resource_props)
+    metadata = translator.get_metadata(resource_props)
+
+    assert "Float metrics." in description
+    assert "Creates the key business metrics" in description
+    assert "This warehouse transform asset is built with dbt" in description
+    assert metadata["dagflow_business_name"] == "Float metrics"
+    assert metadata["dagflow_business_significance"].startswith(
+        "Creates the key business metrics"
+    )

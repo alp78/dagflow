@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from dagflow_api.dependencies import get_repository
 from dagflow_api.repository import DagflowRepository
 from dagflow_api.schemas import (
+    AvailableSourceDate,
     CellEditRequest,
     RecalcRequest,
     ReviewRowsResponse,
@@ -38,6 +39,17 @@ def list_review_snapshots(
     repository: DagflowRepository = Depends(get_repository),
 ) -> list[ReviewSnapshotSummary]:
     return repository.list_review_snapshots(dataset_code, limit)
+
+
+@router.get("/{dataset_code}/available-dates", response_model=list[AvailableSourceDate])
+def list_available_source_dates(
+    dataset_code: str,
+    repository: DagflowRepository = Depends(get_repository),
+) -> list[AvailableSourceDate]:
+    return [
+        AvailableSourceDate.model_validate(row)
+        for row in repository.list_available_source_dates(dataset_code)
+    ]
 
 
 @router.post("/cell-edit")

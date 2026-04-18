@@ -56,6 +56,25 @@ class ReviewSnapshotSummary(BaseModel):
     is_current: bool = False
 
 
+class AvailableSourceFile(BaseModel):
+    source_name: str
+    source_file_id: str
+    row_count: int
+    captured_at: str
+    raw_exists: bool
+    manifest_exists: bool
+
+
+class AvailableSourceDate(BaseModel):
+    pipeline_code: str
+    business_date: date
+    available_source_count: int
+    expected_source_count: int
+    is_ready: bool
+    missing_sources: list[str] = Field(default_factory=list)
+    sources: list[AvailableSourceFile] = Field(default_factory=list)
+
+
 class WorkflowActionRequest(BaseModel):
     pipeline_code: str
     dataset_code: str
@@ -70,12 +89,65 @@ class DemoResetRequest(BaseModel):
     notes: str | None = None
 
 
-class DashboardOverview(BaseModel):
-    pipeline_count: int
-    enabled_pipeline_count: int
-    pending_reviews: int
-    failure_count: int
-    recent_runs: list[dict[str, Any]] = Field(default_factory=list)
+class WorkbenchResetRequest(BaseModel):
+    actor: str = "reviewer"
+    notes: str | None = None
+
+
+class LoadDateRequest(BaseModel):
+    pipeline_code: str
+    dataset_code: str
+    business_date: date
+    actor: str = "reviewer"
+
+
+class PipelineExecutionStep(BaseModel):
+    step_key: str
+    step_label: str
+    step_group: str
+    sort_order: int
+    status: str
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PipelineExecutionRun(BaseModel):
+    pipeline_code: str
+    dataset_code: str
+    run_id: UUID
+    business_date: date
+    status: str
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    relation: str = "primary"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    current_step_label: str | None = None
+    completed_step_count: int = 0
+    total_step_count: int = 0
+    steps: list[PipelineExecutionStep] = Field(default_factory=list)
+
+
+class PipelineExecutionStatusResponse(BaseModel):
+    run_ids: list[UUID] = Field(default_factory=list)
+    is_complete: bool
+    runs: list[PipelineExecutionRun] = Field(default_factory=list)
+
+
+class LoadDateLaunchResponse(BaseModel):
+    requested_pipeline_code: str
+    dataset_code: str
+    business_date: date
+    requested_run_id: UUID
+    run_ids: list[UUID] = Field(default_factory=list)
+    runs: list[PipelineExecutionRun] = Field(default_factory=list)
+    already_running: bool = False
+
+
+class WorkflowValidationResponse(BaseModel):
+    workflow: dict[str, Any]
+    export_launch: LoadDateLaunchResponse | None = None
+    export_error: str | None = None
 
 
 class DashboardMetric(BaseModel):
@@ -93,36 +165,38 @@ class DashboardChartPoint(BaseModel):
     color: str | None = None
 
 
-class DashboardSecurityLeader(BaseModel):
+class DashboardMissingField(BaseModel):
+    field_name: str
+    label: str
+    missing_count: int
+    present_count: int
+    total_count: int
+    missing_percentage: float
+    completeness_percentage: float
+
+
+class DashboardFocusSecurity(BaseModel):
+    review_row_id: int
     ticker: str
     issuer_name: str
-    exchange: str
-    materiality_score: float
-    investable_shares: float
     holder_count: int
-    total_market_value: float
 
 
-class DashboardFilerLeader(BaseModel):
-    filer_name: str
-    position_count: int
-    distinct_securities: int
-    total_market_value: float
-
-
-class DashboardSnapshot(BaseModel):
-    overview: DashboardOverview
-    latest_business_date: date | None = None
-    security_run_id: UUID | None = None
-    holdings_run_id: UUID | None = None
-    security_metrics: list[DashboardMetric] = Field(default_factory=list)
-    holdings_metrics: list[DashboardMetric] = Field(default_factory=list)
-    exchange_distribution: list[DashboardChartPoint] = Field(default_factory=list)
-    materiality_histogram: list[DashboardChartPoint] = Field(default_factory=list)
-    security_approval_distribution: list[DashboardChartPoint] = Field(default_factory=list)
-    holdings_approval_distribution: list[DashboardChartPoint] = Field(default_factory=list)
-    holders_per_security_histogram: list[DashboardChartPoint] = Field(default_factory=list)
-    portfolio_weight_histogram: list[DashboardChartPoint] = Field(default_factory=list)
-    top_materiality_securities: list[DashboardSecurityLeader] = Field(default_factory=list)
-    top_securities_by_holders: list[DashboardSecurityLeader] = Field(default_factory=list)
-    top_filers: list[DashboardFilerLeader] = Field(default_factory=list)
+class DashboardDatasetSnapshot(BaseModel):
+    dataset_code: str
+    dataset_label: str
+    business_date: date | None = None
+    run_id: UUID | None = None
+    metrics: list[DashboardMetric] = Field(default_factory=list)
+    missing_fields: list[DashboardMissingField] = Field(default_factory=list)
+    distribution_title: str
+    distribution_subtitle: str
+    distribution_points: list[DashboardChartPoint] = Field(default_factory=list)
+    shares_histogram_title: str
+    shares_histogram_subtitle: str
+    shares_histogram_points: list[DashboardChartPoint] = Field(default_factory=list)
+    value_histogram_title: str
+    value_histogram_subtitle: str
+    value_histogram_points: list[DashboardChartPoint] = Field(default_factory=list)
+    focus_security_options: list[DashboardFocusSecurity] = Field(default_factory=list)
+    default_focus_security_review_row_id: int | None = None

@@ -4,9 +4,13 @@ from dagster import AssetSelection, Definitions, define_asset_job, in_process_ex
 from dagster_dbt import build_dbt_asset_selection
 
 from dagflow_dagster.assets import (
+    holdings_13f_capture,
+    holdings_13f_filers_capture,
     holdings_13f_filers_raw,
     holdings_13f_raw,
+    sec_company_facts_capture,
     sec_company_facts_raw,
+    sec_company_tickers_capture,
     sec_company_tickers_raw,
     security_master_csv_export,
     security_master_export_assets,
@@ -24,6 +28,8 @@ security_master_job = define_asset_job(
     name="security_master_job",
     executor_def=in_process_executor,
     selection=AssetSelection.assets(
+        sec_company_tickers_capture,
+        sec_company_facts_capture,
         sec_company_tickers_raw,
         sec_company_facts_raw,
         security_master_review_snapshot,
@@ -35,6 +41,8 @@ shareholder_holdings_job = define_asset_job(
     name="shareholder_holdings_job",
     executor_def=in_process_executor,
     selection=AssetSelection.assets(
+        holdings_13f_capture,
+        holdings_13f_filers_capture,
         holdings_13f_raw,
         holdings_13f_filers_raw,
         shareholder_holdings_review_snapshot,
@@ -58,8 +66,12 @@ shareholder_holdings_export_job = define_asset_job(
 
 defs = Definitions(
     assets=[
+        sec_company_tickers_capture,
+        sec_company_facts_capture,
         sec_company_tickers_raw,
         sec_company_facts_raw,
+        holdings_13f_capture,
+        holdings_13f_filers_capture,
         holdings_13f_raw,
         holdings_13f_filers_raw,
         security_master_transform_assets,
