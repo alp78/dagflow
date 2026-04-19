@@ -563,7 +563,7 @@ class DagflowRepository:
             where m.review_row_id = any(%s)
             """
         elif dataset_code == "shareholder_holdings":
-            if not self._relation_exists("marts.fact_shareholder_holding"):
+            if not self._relation_exists("marts.holdings"):
                 return {}
             query = """
             select
@@ -582,7 +582,7 @@ class DagflowRepository:
                     end
                 ], null)::text[] as calculation_affected_columns
             from review.shareholder_holdings_daily h
-            left join marts.fact_shareholder_holding m
+            left join marts.holdings m
                 on m.holding_id = h.origin_mart_row_id
             where h.review_row_id = any(%s)
             """
@@ -709,7 +709,8 @@ class DagflowRepository:
         return [ReviewSnapshotSummary.model_validate(row) for row in rows]
 
     def list_available_source_dates(self, pipeline_code: str) -> list[dict[str, Any]]:
-        return _control_plane().list_available_source_dates(pipeline_code)
+        resolved = "security_shareholder" if pipeline_code in ("security_master", "shareholder_holdings") else pipeline_code
+        return _control_plane().list_available_source_dates(resolved)
 
     def _review_row_context(self, review_table: str, row_id: int) -> dict[str, Any]:
         schema_name, table_name = review_table.split(".", maxsplit=1)
@@ -738,27 +739,20 @@ class DagflowRepository:
         business_date: date,
     ) -> None:
         query = """
-        select last_run_id, last_business_date
-        from control.pipeline_state
-        where dataset_code = %s
-        order by updated_at desc, pipeline_code
-        limit 1
+        select run_id, status
+        from observability.pipeline_runs
+        where run_id = %s
         """
         with self.database.connection() as connection, connection.cursor() as cursor:
-            cursor.execute(query, (dataset_code,))
+            cursor.execute(query, (run_id,))
             row = cursor.fetchone()
         if row is None:
-            raise PermissionError(f"No pipeline state exists for {dataset_code}.")
-        if row["last_run_id"] is None or row["last_business_date"] is None:
-            raise PermissionError(f"No current review snapshot exists for {dataset_code}.")
-        if row["last_run_id"] != run_id or row["last_business_date"] != business_date:
-            raise PermissionError(
-                "Only the current operational run can be edited or validated. "
-                "Load the selected source date into the workspace before making changes."
-            )
+            raise PermissionError(f"No pipeline run found for run_id {run_id}.")
+        if row["status"] == "exported":
+            raise PermissionError("This run has already been exported.")
 
     def ensure_holdings_review_unlocked(self, business_date: date) -> None:
-        security_state = self._get_pipeline_state("security_master")
+        security_state = self._get_pipeline_state("security_shareholder")
         if security_state is None or security_state.get("last_run_id") is None:
             raise PermissionError(
                 "Shareholder Holdings stays locked until Security Master is "
@@ -1112,6 +1106,26 @@ class DagflowRepository:
             raise FileNotFoundError(f"Artifact path does not exist: {path}")
         return path
 
+    def get_calendar_days(self, calendar_code: str, year: int) -> list[dict[str, Any]]:
+        query = """
+        select cal_date, is_business_day, day_type, holiday_name
+        from control.calendar_days
+        where calendar_code = %s
+          and extract(year from cal_date) = %s
+        order by cal_date
+        """
+        with self.database.connection() as connection, connection.cursor() as cursor:
+            cursor.execute(query, (calendar_code, year))
+            return [
+                {
+                    "date": str(row["cal_date"]),
+                    "is_business_day": row["is_business_day"],
+                    "day_type": row["day_type"],
+                    "holiday_name": row["holiday_name"],
+                }
+                for row in cursor.fetchall()
+            ]
+
     def reset_demo_runs(self, actor: str, notes: str | None) -> dict[str, Any]:
         query = "select workflow.reset_demo_runs(%s, %s) as payload"
         with self.database.connection() as connection, connection.cursor() as cursor:
@@ -1131,7 +1145,7 @@ class DagflowRepository:
             return cursor.fetchone()
 
     def _list_focus_securities(self) -> list[DashboardFocusSecurity]:
-        holdings_state = self._get_pipeline_state("shareholder_holdings")
+        holdings_state = self._get_pipeline_state("security_shareholder")
         if not holdings_state or holdings_state["last_run_id"] is None:
             return []
 
@@ -1186,7 +1200,7 @@ class DagflowRepository:
         focus_securities: list[DashboardFocusSecurity],
         default_focus_security_review_row_id: int | None,
     ) -> DashboardDatasetSnapshot:
-        state = self._get_pipeline_state("security_master")
+        state = self._get_pipeline_state("security_shareholder")
         if not state or state["last_run_id"] is None:
             return DashboardDatasetSnapshot(
                 dataset_code="security_master",
@@ -1337,7 +1351,7 @@ class DagflowRepository:
         focus_securities: list[DashboardFocusSecurity],
         default_focus_security_review_row_id: int | None,
     ) -> DashboardDatasetSnapshot:
-        state = self._get_pipeline_state("shareholder_holdings")
+        state = self._get_pipeline_state("security_shareholder")
         if not state or state["last_run_id"] is None:
             return DashboardDatasetSnapshot(
                 dataset_code="shareholder_holdings",
@@ -1513,9 +1527,9 @@ class DagflowRepository:
             select
                 concat(s.review_row_id::text, ':', edit.key) as edit_key,
                 s.review_row_id,
+                'security_master' as source_table,
                 s.ticker,
-                s.issuer_name,
-                s.exchange,
+                s.issuer_name as entity_name,
                 edit.key as column_name,
                 edit.value ->> 'old' as old_value,
                 edit.value ->> 'new' as new_value,
@@ -1525,11 +1539,32 @@ class DagflowRepository:
             from review.security_master_daily s
             cross join lateral jsonb_each(coalesce(s.edited_cells, '{}'::jsonb)) as edit(key, value)
             where s.run_id = %s
+
+            union all
+
+            select
+                concat('h', h.review_row_id::text, ':', edit.key) as edit_key,
+                h.review_row_id,
+                'shareholder_holdings' as source_table,
+                h.security_identifier as ticker,
+                h.filer_name as entity_name,
+                edit.key as column_name,
+                edit.value ->> 'old' as old_value,
+                edit.value ->> 'new' as new_value,
+                edit.value ->> 'changed_by' as changed_by,
+                edit.value ->> 'changed_at' as changed_at,
+                edit.value ->> 'reason' as reason
+            from review.shareholder_holdings_daily h
+            join review.security_master_daily s
+              on s.review_row_id = h.security_review_row_id
+             and s.run_id = %s
+            cross join lateral jsonb_each(coalesce(h.edited_cells, '{}'::jsonb)) as edit(key, value)
+
             order by
-                nullif(edit.value ->> 'changed_at', '')::timestamptz desc nulls last,
-                s.ticker asc,
-                s.review_row_id asc,
-                edit.key asc
+                changed_at desc nulls last,
+                ticker asc,
+                review_row_id asc,
+                column_name asc
             """
         elif dataset_code == "shareholder_holdings":
             query = """
@@ -1558,14 +1593,15 @@ class DagflowRepository:
         else:
             raise KeyError(f"Unknown dataset code: {dataset_code}")
 
+        params: tuple[UUID, ...] = (run_id, run_id) if dataset_code == "security_master" else (run_id,)
         with self.database.connection() as connection, connection.cursor() as cursor:
-            cursor.execute(query, (run_id,))
+            cursor.execute(query, params)
             return list(cursor.fetchall())
 
     def get_security_shareholder_breakdown(
         self, security_review_row_id: int
     ) -> list[dict[str, Any]]:
-        if not self._relation_exists("marts.fact_shareholder_holding"):
+        if not self._relation_exists("marts.holdings"):
             query = "select * from query_api.fn_security_shareholder_breakdown(%s)"
             with self.database.connection() as connection, connection.cursor() as cursor:
                 cursor.execute(query, (security_review_row_id,))
@@ -1591,7 +1627,7 @@ class DagflowRepository:
                 end
             ], null)::text[] as calculation_affected_columns
         from review.shareholder_holdings_daily h
-        left join marts.fact_shareholder_holding m
+        left join marts.holdings m
             on m.holding_id = h.origin_mart_row_id
         where h.security_review_row_id = %s
         order by
@@ -1605,7 +1641,7 @@ class DagflowRepository:
     def get_security_holder_valuations(
         self, security_review_row_id: int
     ) -> list[dict[str, Any]]:
-        if not self._relation_exists("marts.fact_shareholder_holding"):
+        if not self._relation_exists("marts.holdings"):
             query = """
             select
                 h.review_row_id as holding_review_row_id,
@@ -1661,7 +1697,7 @@ class DagflowRepository:
                 end
             ], null)::text[] as calculation_affected_columns
         from review.shareholder_holdings_daily h
-        left join marts.fact_shareholder_holding m
+        left join marts.holdings m
             on m.holding_id = h.origin_mart_row_id
         where h.security_review_row_id = %s
         order by
@@ -1675,8 +1711,100 @@ class DagflowRepository:
             cursor.execute(query, (security_review_row_id,))
             return list(cursor.fetchall())
 
+    def get_security_holdings_unified(
+        self, security_review_row_id: int
+    ) -> list[dict[str, Any]]:
+        if not self._relation_exists("marts.holdings"):
+            query = """
+            select
+                h.review_row_id as holding_review_row_id,
+                h.filer_name,
+                coalesce(h.shares_held_override, h.shares_held_raw) as shares_held,
+                coalesce(
+                    h.reviewed_market_value_override,
+                    h.reviewed_market_value_raw
+                ) as market_value,
+                h.holding_pct_of_outstanding,
+                h.derived_price_per_share,
+                h.portfolio_weight,
+                h.approval_state,
+                h.accession_number,
+                h.security_identifier,
+                h.security_name,
+                coalesce(h.edited_cells ? 'shares_held_raw', false) as shares_held_manually_edited,
+                array[]::text[] as calculation_affected_columns
+            from review.shareholder_holdings_daily h
+            where h.security_review_row_id = %s
+            order by
+                coalesce(
+                    h.reviewed_market_value_override,
+                    h.reviewed_market_value_raw
+                ) desc nulls last,
+                h.filer_name
+            """
+            with self.database.connection() as connection, connection.cursor() as cursor:
+                cursor.execute(query, (security_review_row_id,))
+                return list(cursor.fetchall())
+
+        query = """
+        select
+            h.review_row_id as holding_review_row_id,
+            h.filer_name,
+            coalesce(h.shares_held_override, h.shares_held_raw) as shares_held,
+            coalesce(
+                h.reviewed_market_value_override,
+                h.reviewed_market_value_raw
+            ) as market_value,
+            h.holding_pct_of_outstanding,
+            h.derived_price_per_share,
+            h.portfolio_weight,
+            h.approval_state,
+            h.accession_number,
+            h.security_identifier,
+            h.security_name,
+            coalesce(h.edited_cells ? 'shares_held_raw', false) as shares_held_manually_edited,
+            array_remove(array[
+                case
+                    when m.holding_id is not null
+                     and h.holding_pct_of_outstanding is distinct from m.holding_pct_of_outstanding
+                    then 'holding_pct_of_outstanding'
+                end,
+                case
+                    when m.holding_id is not null
+                     and h.derived_price_per_share is distinct from m.derived_price_per_share
+                    then 'derived_price_per_share'
+                end
+            ], null)::text[] as calculation_affected_columns
+        from review.shareholder_holdings_daily h
+        left join marts.holdings m
+            on m.holding_id = h.origin_mart_row_id
+        where h.security_review_row_id = %s
+        order by
+            coalesce(
+                h.reviewed_market_value_override,
+                h.reviewed_market_value_raw
+            ) desc nulls last,
+            h.filer_name
+        """
+        with self.database.connection() as connection, connection.cursor() as cursor:
+            cursor.execute(query, (security_review_row_id,))
+            return list(cursor.fetchall())
+
+    def get_current_pipeline_run(self, pipeline_code: str) -> dict[str, Any]:
+        query = """
+        SELECT last_run_id, last_business_date
+        FROM control.pipeline_state
+        WHERE pipeline_code = %s
+        """
+        with self.database.connection() as connection, connection.cursor() as cursor:
+            cursor.execute(query, (pipeline_code,))
+            row = cursor.fetchone()
+        if row is None:
+            raise KeyError(f"No pipeline state found for pipeline_code={pipeline_code!r}")
+        return dict(row)
+
     def get_holding_peer_holders(self, holding_review_row_id: int) -> list[dict[str, Any]]:
-        if not self._relation_exists("marts.fact_shareholder_holding"):
+        if not self._relation_exists("marts.holdings"):
             query = "select * from query_api.fn_holding_peer_holders(%s)"
             with self.database.connection() as connection, connection.cursor() as cursor:
                 cursor.execute(query, (holding_review_row_id,))
@@ -1708,7 +1836,7 @@ class DagflowRepository:
         from review.shareholder_holdings_daily h
         join selected_holding selected
             on selected.security_review_row_id = h.security_review_row_id
-        left join marts.fact_shareholder_holding m
+        left join marts.holdings m
             on m.holding_id = h.origin_mart_row_id
         order by coalesce(h.shares_held_override, h.shares_held_raw) desc nulls last, h.filer_name
         """
@@ -1717,7 +1845,7 @@ class DagflowRepository:
             return list(cursor.fetchall())
 
     def get_filer_portfolio_snapshot(self, holding_review_row_id: int) -> list[dict[str, Any]]:
-        if not self._relation_exists("marts.fact_shareholder_holding"):
+        if not self._relation_exists("marts.holdings"):
             query = "select * from query_api.fn_filer_portfolio_snapshot(%s)"
             with self.database.connection() as connection, connection.cursor() as cursor:
                 cursor.execute(query, (holding_review_row_id,))
@@ -1752,7 +1880,7 @@ class DagflowRepository:
         join selected_holding selected
             on selected.run_id = h.run_id
            and selected.filer_cik = h.filer_cik
-        left join marts.fact_shareholder_holding m
+        left join marts.holdings m
             on m.holding_id = h.origin_mart_row_id
         order by h.portfolio_weight desc nulls last, h.security_identifier
         """
@@ -1761,7 +1889,7 @@ class DagflowRepository:
             return list(cursor.fetchall())
 
     def get_filer_weight_bands(self, holding_review_row_id: int) -> list[dict[str, Any]]:
-        if not self._relation_exists("marts.fact_shareholder_holding"):
+        if not self._relation_exists("marts.holdings"):
             query = "select * from query_api.fn_filer_weight_bands(%s)"
             with self.database.connection() as connection, connection.cursor() as cursor:
                 cursor.execute(query, (holding_review_row_id,))
@@ -1818,7 +1946,7 @@ class DagflowRepository:
                 end as weight_band,
                 coalesce(h.reviewed_market_value_raw, 0) as market_value,
                 h.portfolio_weight
-            from marts.fact_shareholder_holding h
+            from marts.holdings h
             join selected_holding selected
                 on selected.run_id = h.run_id
                and selected.filer_cik = h.filer_cik

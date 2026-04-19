@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: securities
+    columns:
+      - name: security_id
+        tests:
+          - not_null
+      - name: ticker
+        tests:
+          - not_null
+      - name: row_hash
+        tests:
+          - not_null
+
+  - name: holdings
+    columns:
+      - name: holding_id
+        tests:
+          - unique
+          - not_null
+      - name: security_id
+        tests:
+          - not_null:
+              severity: warn
+      - name: shareholder_id
+        tests:
+          - not_null

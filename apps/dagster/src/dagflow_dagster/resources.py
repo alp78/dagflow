@@ -3,8 +3,10 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import logging
 import os
 import sys
+import threading
 from datetime import UTC, date, datetime
 from functools import cached_property
 from pathlib import Path
@@ -26,7 +28,6 @@ from dagflow_dagster.execution import (
     pipeline_step_definition,
     pipeline_step_definitions,
 )
-from dagflow_dagster.ingestion import EdgarIngestionService
 
 SOURCE_DESCRIPTOR_INDEX: dict[str, tuple[str, int]] = {
     "sec_company_tickers": ("sec_json", 0),
@@ -105,6 +106,7 @@ class ControlPlaneResource(ConfigurableResource):
 
     @cached_property
     def ingestion(self) -> EdgarIngestionService:
+        from dagflow_security_shareholder.ingestion import EdgarIngestionService
         return EdgarIngestionService(
             edgar_identity=self.edgar_identity,
             sec_13f_lookback_days=self.sec_13f_lookback_days,
@@ -149,6 +151,11 @@ class ControlPlaneResource(ConfigurableResource):
     def source_descriptors_for_pipeline(
         self, pipeline_code: str, business_date: date
     ) -> list[Any]:
+        if pipeline_code == "security_shareholder":
+            descriptors: list[Any] = []
+            for adapter_type in ("sec_json", "sec_13f"):
+                descriptors.extend(get_adapter(adapter_type).build_sources(business_date))
+            return descriptors
         registration = self.pipeline_registration(pipeline_code)
         adapter = get_adapter(registration.adapter_type)
         return [
@@ -485,7 +492,7 @@ class ControlPlaneResource(ConfigurableResource):
                 cursor.execute(
                     query,
                     (
-                        descriptor.pipeline_code,
+                        "security_shareholder",
                         descriptor.dataset_code,
                         descriptor.source_name,
                         descriptor.business_date,
@@ -1188,6 +1195,38 @@ class ControlPlaneResource(ConfigurableResource):
             )
         return results
 
+    def delete_source_files_for_date(self, pipeline_code: str, business_date: date) -> dict[str, Any]:
+        descriptors = self.source_descriptors_for_pipeline(pipeline_code, business_date)
+        deleted_files: list[str] = []
+        for descriptor in descriptors:
+            source_root = self._source_root_path(descriptor)
+            date_dir = source_root / business_date.isoformat()
+            if date_dir.exists() and date_dir.is_dir():
+                import shutil
+                for f in date_dir.iterdir():
+                    deleted_files.append(str(f))
+                shutil.rmtree(date_dir)
+
+        deleted_rows = 0
+        with psycopg.connect(self.direct_database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    delete from control.source_file_registry
+                    where pipeline_code = %s and business_date = %s
+                    """,
+                    (pipeline_code, business_date),
+                )
+                deleted_rows = cursor.rowcount
+            connection.commit()
+
+        return {
+            "pipeline_code": pipeline_code,
+            "business_date": business_date.isoformat(),
+            "deleted_files": len(deleted_files),
+            "deleted_registry_rows": deleted_rows,
+        }
+
     def last_pipeline_run_id(self, pipeline_code: str) -> UUID | None:
         with psycopg.connect(self.direct_database_url) as connection:
             with connection.cursor() as cursor:
@@ -1423,7 +1462,7 @@ class ControlPlaneResource(ConfigurableResource):
                     issuer_name,
                     investable_shares,
                     review_materiality_score
-                from marts.dim_security
+                from marts.securities
                 where run_id = %s
                 order by ticker
                 """,
@@ -1458,7 +1497,7 @@ class ControlPlaneResource(ConfigurableResource):
                     security_name,
                     shares_held_raw as shares_held,
                     holding_pct_of_outstanding
-                from marts.fact_shareholder_holding
+                from marts.holdings
                 where run_id = %s
                 order by filer_name, security_name
                 """,
@@ -1588,39 +1627,21 @@ class ControlPlaneResource(ConfigurableResource):
     @staticmethod
     def _workspace_relations_for_pipeline(pipeline_code: str) -> list[str]:
         return {
-            "security_master": [
+            "security_shareholder": [
+                "export.security_master_final",
+                "review.security_master_daily",
+                "review.shareholder_holdings_daily",
+                "marts.securities",
+                "marts.securities_snapshot",
+                "marts.holdings",
                 "export.security_master_final",
                 "export.security_master_preview",
-                "staging_export.security_master_final",
-                "review.security_master_daily",
-                "marts.dim_security",
-                "marts.dim_security_snapshot",
-                "staging_marts.dim_security",
-                "intermediate.int_security_attributes",
-                "staging_intermediate.int_security_attributes",
-                "intermediate.int_security_base",
-                "staging_intermediate.int_security_base",
-                "staging.stg_sec_company_tickers",
-                "staging_staging.stg_sec_company_tickers",
-                "staging.stg_sec_company_facts",
-                "staging_staging.stg_sec_company_facts",
-                "raw.sec_company_tickers",
-                "raw.sec_company_facts",
-            ],
-            "shareholder_holdings": [
                 "export.shareholder_holdings_final",
                 "export.shareholder_holdings_preview",
-                "staging_export.shareholder_holdings_final",
-                "review.shareholder_holdings_daily",
-                "marts.fact_shareholder_holding",
-                "staging_marts.fact_shareholder_holding",
-                "marts.dim_shareholder",
-                "marts.dim_shareholder_snapshot",
-                "staging_marts.dim_shareholder",
-                "intermediate.int_holding_with_security",
-                "staging_intermediate.int_holding_with_security",
-                "intermediate.int_shareholder_base",
-                "staging_intermediate.int_shareholder_base",
+                "raw.sec_company_tickers",
+                "raw.sec_company_facts",
+                "raw.holdings_13f",
+                "raw.holdings_13f_filers",
                 "staging.stg_13f_holdings",
                 "staging_staging.stg_13f_holdings",
                 "staging.stg_13f_filers",
@@ -1810,7 +1831,7 @@ class ControlPlaneResource(ConfigurableResource):
         ]
         with psycopg.connect(self.direct_database_url, autocommit=False) as connection:
             with connection.cursor() as cursor:
-                if pipeline_code == "security_master":
+                if pipeline_code in ("security_master", "security_shareholder"):
                     cursor.execute("select to_regclass('review.shareholder_holdings_daily')")
                     row = cursor.fetchone()
                     if row is not None and row[0] is not None:
@@ -1877,18 +1898,24 @@ class ControlPlaneResource(ConfigurableResource):
 
     def vacuum_pipeline_workspace(self, pipeline_code: str) -> dict[str, Any]:
         vacuumed_relations: list[str] = []
+        skipped_relations: list[str] = []
         with psycopg.connect(self.direct_database_url, autocommit=True) as connection:
             with connection.cursor() as cursor:
+                cursor.execute("SET lock_timeout = '5s'")
                 for relation_name in self._vacuum_relations_for_pipeline(pipeline_code):
                     cursor.execute("select to_regclass(%s)", (relation_name,))
                     row = cursor.fetchone()
                     if row is None or row[0] is None:
                         continue
-                    cursor.execute(f"vacuum analyze {relation_name}")
-                    vacuumed_relations.append(relation_name)
+                    try:
+                        cursor.execute(f"vacuum analyze {relation_name}")
+                        vacuumed_relations.append(relation_name)
+                    except Exception:
+                        skipped_relations.append(relation_name)
         return {
             "pipeline_code": pipeline_code,
             "vacuumed_relations": vacuumed_relations,
+            "skipped_relations": skipped_relations,
         }
 
     def cleanup_operational_run(
@@ -1962,7 +1989,7 @@ class ControlPlaneResource(ConfigurableResource):
             reviewed_query,
             fieldnames,
             business_key_columns,
-        ) = self._export_query_details(pipeline_code)
+        ) = self._export_query_details(dataset_code)
         config_query = """
         select storage_prefix, export_contract_code
         from control.pipeline_registry
@@ -2226,6 +2253,16 @@ class ControlPlaneResource(ConfigurableResource):
                             step.sort_order,
                         ),
                     )
+                cursor.execute(
+                    """
+                    update control.pipeline_state
+                    set last_run_id = %s,
+                        last_business_date = %s,
+                        last_transition_by = 'dagster'
+                    where pipeline_code = %s
+                    """,
+                    (run_id, business_date, pipeline_code),
+                )
             connection.commit()
 
     def ensure_pipeline_run(
@@ -2851,7 +2888,7 @@ class ControlPlaneResource(ConfigurableResource):
                     '{}'::jsonb,
                     0,
                     'Historical backfill snapshot'
-                from marts.dim_security
+                from marts.securities
                 where run_id = %(run_id)s
             """,
             "shareholder_holdings": """
@@ -2910,7 +2947,7 @@ class ControlPlaneResource(ConfigurableResource):
                     '{}'::jsonb,
                     0,
                     'Historical backfill snapshot'
-                from marts.fact_shareholder_holding h
+                from marts.holdings h
                 left join review.security_master_daily s
                   on s.run_id = %(security_run_id)s
                  and s.ticker = h.security_identifier
@@ -3215,6 +3252,21 @@ class ControlPlaneResource(ConfigurableResource):
         run_id: UUID,
         business_date: date,
     ) -> None:
+        thread = threading.Thread(
+            target=self._record_review_lineage_sync,
+            args=(pipeline_code, dataset_code, run_id, business_date),
+            daemon=True,
+        )
+        thread.start()
+
+    def _record_review_lineage_sync(
+        self,
+        pipeline_code: str,
+        dataset_code: str,
+        run_id: UUID,
+        business_date: date,
+    ) -> None:
+        logger = logging.getLogger("dagflow.lineage")
         queries: dict[str, str] = {
             "security_master": """
                 insert into lineage.row_lineage_edges (
@@ -3294,20 +3346,29 @@ class ControlPlaneResource(ConfigurableResource):
         query = queries.get(pipeline_code)
         if query is None:
             return
-        with psycopg.connect(self.direct_database_url, autocommit=False) as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    delete from lineage.row_lineage_edges
-                    where pipeline_code = %s
-                      and dataset_code = %s
-                      and run_id = %s
-                      and relationship_type = 'published_to_review'
-                    """,
-                    (pipeline_code, dataset_code, run_id),
-                )
-                cursor.execute(query, (run_id, business_date, run_id))
-            connection.commit()
+        try:
+            with psycopg.connect(self.direct_database_url, autocommit=False) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        delete from lineage.row_lineage_edges
+                        where pipeline_code = %s
+                          and dataset_code = %s
+                          and run_id = %s
+                          and relationship_type = 'published_to_review'
+                        """,
+                        (pipeline_code, dataset_code, run_id),
+                    )
+                    cursor.execute(query, (run_id, business_date, run_id))
+                connection.commit()
+            logger.info("Recorded %s review lineage for run %s", pipeline_code, run_id)
+        except Exception:
+            logger.warning(
+                "Failed to record %s review lineage for run %s",
+                pipeline_code,
+                run_id,
+                exc_info=True,
+            )
 
     def _review_row_count(self, dataset_code: str, run_id: UUID) -> int:
         queries = {
@@ -3349,7 +3410,7 @@ def build_resources() -> dict[str, ConfigurableResource | DbtCliResource]:
     return {
         "control_plane": ControlPlaneResource(
             direct_database_url=settings.direct_database_url,
-            export_root_dir=settings.export_root_dir,
+            export_root_dir=str(settings.resolved_export_root_dir),
             landing_root_dir=str(settings.resolved_landing_root_dir),
             edgar_identity=settings.edgar_identity,
             sec_13f_lookback_days=settings.sec_13f_lookback_days,

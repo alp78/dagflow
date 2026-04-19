@@ -6,7 +6,10 @@ endif
 COMPOSE ?= docker compose
 POSTGRES_DSN ?= postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)
 
-.PHONY: up down logs ps db-init db-migrate seed test lint typecheck format py-sync ui-install
+UV := UV_PROJECT_ENVIRONMENT=.dagflow uv
+WORKFLOW_SRC = $(shell UV_PROJECT_ENVIRONMENT=.dagflow uv run python -c "import json; c=json.load(open('config.json')); print(' '.join(w['path']+'/src' for w in c['workflows']))")
+
+.PHONY: up down logs ps db-init db-migrate seed test lint typecheck format py-sync ui-install sync-config
 
 up:
 	$(COMPOSE) up --build -d
@@ -23,30 +26,33 @@ ps:
 db-init: db-migrate seed
 
 db-migrate:
-	uv run python ops/scripts/manage_db.py migrate --dsn "$(POSTGRES_DSN)"
+	$(UV) run python ops/scripts/manage_db.py migrate --dsn "$(POSTGRES_DSN)"
 
 seed:
-	uv run python ops/scripts/manage_db.py seed --dsn "$(POSTGRES_DSN)"
+	$(UV) run python ops/scripts/manage_db.py seed --dsn "$(POSTGRES_DSN)"
 
 py-sync:
-	uv sync --all-packages --dev
+	$(UV) sync --all-packages --dev
 
 ui-install:
 	pnpm install
 
 lint:
-	uv run ruff check .
-	uv run mypy apps/api/src apps/dagster/src packages/pipeline-framework/src packages/source-adapters/src
+	$(UV) run ruff check .
+	$(UV) run mypy apps/api/src apps/dagster/src packages/pipeline-framework/src packages/source-adapters/src $(WORKFLOW_SRC)
 	pnpm lint
 
 typecheck:
-	uv run mypy apps/api/src apps/dagster/src packages/pipeline-framework/src packages/source-adapters/src
+	$(UV) run mypy apps/api/src apps/dagster/src packages/pipeline-framework/src packages/source-adapters/src $(WORKFLOW_SRC)
 	pnpm typecheck
 
 test:
-	uv run pytest
+	$(UV) run pytest
 	pnpm test
 
 format:
-	uv run ruff format .
+	$(UV) run ruff format .
 	pnpm format
+
+sync-config:
+	$(UV) run python ops/scripts/sync_config.py

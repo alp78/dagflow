@@ -1,5 +1,5 @@
-from dagflow_dagster.dbt_topology import (
-    DagflowDbtTranslator,
+from dagflow_security_shareholder.topology import (
+    SecurityShareholderDbtTranslator,
     group_for_resource_path,
     pipeline_for_resource,
 )
@@ -8,20 +8,24 @@ from dagflow_dagster.dbt_topology import (
 def test_group_for_resource_path_maps_layers() -> None:
     assert (
         group_for_resource_path(
-            "models/staging/security_master/stg_sec_company_tickers.sql"
+            "staging/security_master/stg_sec_company_tickers.sql"
         )
         == "warehouse_transform"
     )
     assert (
-        group_for_resource_path("models/intermediate/shareholder_holdings/int_holding_with_security.sql")
+        group_for_resource_path(
+            "intermediate/shareholder_holdings/int_holding_with_security.sql"
+        )
         == "warehouse_transform"
     )
     assert (
-        group_for_resource_path("models/marts/security_master/dim_security.sql")
+        group_for_resource_path("marts/security_master/dim_security.sql")
         == "warehouse_transform"
     )
     assert (
-        group_for_resource_path("models/exports/shareholder_holdings/shareholder_holdings_final.sql")
+        group_for_resource_path(
+            "exports/shareholder_holdings/shareholder_holdings_final.sql"
+        )
         == "validated_export"
     )
 
@@ -40,8 +44,7 @@ def test_pipeline_for_resource_prefers_tags_and_path() -> None:
             {
                 "tags": [],
                 "original_file_path": (
-                    "models/intermediate/shareholder_holdings/"
-                    "int_holding_with_security.sql"
+                    "intermediate/shareholder_holdings/int_holding_with_security.sql"
                 ),
             }
         )
@@ -50,14 +53,14 @@ def test_pipeline_for_resource_prefers_tags_and_path() -> None:
 
 
 def test_translator_prefixes_model_asset_keys_by_pipeline() -> None:
-    translator = DagflowDbtTranslator()
+    translator = SecurityShareholderDbtTranslator()
 
     security_key = translator.get_asset_key(
         {
             "name": "dim_security",
             "resource_type": "model",
             "tags": ["security_master"],
-            "original_file_path": "models/marts/security_master/dim_security.sql",
+            "original_file_path": "marts/security_master/dim_security.sql",
         }
     )
     holdings_key = translator.get_asset_key(
@@ -65,7 +68,7 @@ def test_translator_prefixes_model_asset_keys_by_pipeline() -> None:
             "name": "fact_shareholder_holding",
             "resource_type": "model",
             "tags": ["shareholder_holdings"],
-            "original_file_path": "models/marts/shareholder_holdings/fact_shareholder_holding.sql",
+            "original_file_path": "marts/shareholder_holdings/fact_shareholder_holding.sql",
         }
     )
 
@@ -74,13 +77,13 @@ def test_translator_prefixes_model_asset_keys_by_pipeline() -> None:
 
 
 def test_translator_adds_business_context_to_assets() -> None:
-    translator = DagflowDbtTranslator()
+    translator = SecurityShareholderDbtTranslator()
 
     resource_props = {
         "name": "int_security_attributes",
         "resource_type": "model",
         "tags": ["security_master"],
-        "original_file_path": "models/intermediate/security_master/int_security_attributes.sql",
+        "original_file_path": "intermediate/security_master/int_security_attributes.sql",
         "alias": "int_security_attributes",
         "config": {"materialized": "table"},
     }

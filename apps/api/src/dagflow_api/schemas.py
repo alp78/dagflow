@@ -84,6 +84,13 @@ class WorkflowActionRequest(BaseModel):
     notes: str | None = None
 
 
+class WorkspaceApprovalRequest(BaseModel):
+    business_date: date
+    run_id: str | None = None
+    actor: str = "reviewer"
+    notes: str | None = None
+
+
 class DemoResetRequest(BaseModel):
     actor: str = "reviewer"
     notes: str | None = None

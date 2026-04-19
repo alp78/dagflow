@@ -92,6 +92,18 @@ def get_row_diff(
     return repository.get_row_diff(review_table, row_id)
 
 
+@router.get("/row-meta")
+def get_row_meta(
+    review_table: str,
+    row_id: int,
+    row_hash: str | None = Query(default=None),
+    repository: DagflowRepository = Depends(get_repository),
+) -> dict[str, object]:
+    diff_result = repository.get_row_diff(review_table, row_id)
+    lineage_result = repository.get_lineage_trace(row_hash) if row_hash is not None else []
+    return {"diff": diff_result, "lineage": lineage_result}
+
+
 @router.post("/recalculate/security")
 def recalc_security(
     request: RecalcRequest,

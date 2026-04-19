@@ -1,0 +1,27 @@
+[project]
+name = "dagflow-security-shareholder"
+version = "0.1.0"
+description = "Security Master and Shareholder Holdings workflow for Dagflow"
+requires-python = ">=3.13"
+dependencies = [
+  "dagflow-dagster",
+  "dagflow-source-adapters",
+  "dagster>=1.10.10",
+  "dagster-dbt>=0.26.10",
+  "edgartools>=5.30.0",
+  "httpx>=0.28.1",
+  "pandas>=3.0.0",
+  "pyarrow>=19.0.1",
+  "psycopg[binary]>=3.2.9",
+]
+
+[tool.uv.sources]
+dagflow-dagster = { workspace = true }
+dagflow-source-adapters = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dagflow_security_shareholder"]

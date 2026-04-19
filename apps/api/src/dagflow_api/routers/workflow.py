@@ -4,7 +4,6 @@ from uuid import UUID
 
 from dagflow_dagster.runner import (
     launch_pipeline_for_date,
-    launch_workspace_export,
     reset_workbench,
     run_pipeline_for_date,
 )
@@ -21,6 +20,7 @@ from dagflow_api.schemas import (
     WorkbenchResetRequest,
     WorkflowActionRequest,
     WorkflowValidationResponse,
+    WorkspaceApprovalRequest,
 )
 
 router = APIRouter(prefix="/workflow", tags=["workflow"])
@@ -37,25 +37,37 @@ def validate_dataset(
         )
     except PermissionError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
-    if request.dataset_code == "security_master":
-        return {
-            "workflow": workflow_payload,
-            "export_launch": None,
-        }
-    try:
-        export_launch = launch_workspace_export(
-            request.pipeline_code,
-            request.business_date,
-        )
-    except RuntimeError as error:
-        return {
-            "workflow": workflow_payload,
-            "export_error": str(error),
-        }
     return {
         "workflow": workflow_payload,
-        "export_launch": export_launch,
+        "export_launch": None,
     }
+
+
+@router.post("/validate-workspace")
+def validate_full_workspace(
+    request: WorkspaceApprovalRequest,
+    repository: DagflowRepository = Depends(get_repository),
+) -> dict[str, object]:
+    run_id = request.run_id
+    if not run_id:
+        state = repository.get_current_pipeline_run("security_shareholder")
+        run_id = state["last_run_id"]
+    try:
+        for dataset_code in ("security_master", "shareholder_holdings"):
+            result = repository.call_workflow_action(
+                "validate_dataset",
+                {
+                    "pipeline_code": "security_shareholder",
+                    "dataset_code": dataset_code,
+                    "run_id": run_id,
+                    "business_date": request.business_date,
+                    "actor": request.actor,
+                    "notes": request.notes or "Workspace approved from unified review",
+                },
+            )
+    except PermissionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return {"workflow": result, "export_launch": None}
 
 
 @router.post("/load-date")
@@ -106,12 +118,56 @@ def open_export_artifact(
     return FileResponse(path=artifact_path, filename=artifact_path.name)
 
 
+@router.post("/capture-sources")
+def capture_sources_for_date(
+    request: LoadDateRequest,
+    repository: DagflowRepository = Depends(get_repository),
+) -> dict[str, object]:
+    from dagflow_dagster.resources import build_resources
+
+    bdate = request.business_date
+    resources = build_resources()
+    control_plane = resources["control_plane"]
+    results = []
+    for source_name in ("sec_company_tickers", "sec_company_facts", "holdings_13f", "holdings_13f_filers"):
+        try:
+            record = control_plane.capture_source_file(source_name, bdate)
+            results.append({"source_name": source_name, "status": "captured", "row_count": record.get("row_count", 0)})
+        except Exception as err:
+            results.append({"source_name": source_name, "status": "error", "error": str(err)})
+    return {"business_date": request.business_date, "sources": results}
+
+
+@router.post("/delete-source-files")
+def delete_source_files(
+    request: LoadDateRequest,
+    repository: DagflowRepository = Depends(get_repository),
+) -> dict[str, object]:
+    from dagflow_dagster.resources import build_resources
+
+    resources = build_resources()
+    control_plane = resources["control_plane"]
+    result = control_plane.delete_source_files_for_date("security_shareholder", request.business_date)
+    return result
+
+
 @router.post("/reset-workbench")
 def reset_reviewer_workbench(request: WorkbenchResetRequest) -> dict[str, object]:
     try:
         return reset_workbench(actor=request.actor, notes=request.notes)
     except RuntimeError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.get("/calendar/{calendar_code}")
+def get_calendar_days(
+    calendar_code: str,
+    year: int | None = None,
+    repository: DagflowRepository = Depends(get_repository),
+) -> list[dict[str, object]]:
+    from datetime import date as d
+    target_year = year or d.today().year
+    return repository.get_calendar_days(calendar_code, target_year)
 
 
 @router.post("/reset-demo")

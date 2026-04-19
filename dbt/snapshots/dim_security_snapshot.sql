@@ -1,5 +1,5 @@
--- depends_on: {{ ref('dim_security') }}
-{% snapshot dim_security_snapshot %}
+-- depends_on: {{ ref('securities') }}
+{% snapshot securities_snapshot %}
   {{
     config(
       target_schema='marts',
@@ -10,5 +10,5 @@
     )
   }}
 
-  select * from {{ ref('dim_security') }}
+  select * from {{ ref('securities') }}
 {% endsnapshot %}

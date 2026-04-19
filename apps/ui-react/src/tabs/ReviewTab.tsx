@@ -28,10 +28,27 @@ type AnalysisViewKey =
   | "filer-portfolio"
   | "filer-weight-bands";
 type OperationsViewKey =
-  | "bad-data-rows"
+  | "bad-data-rows-validity"
+  | "bad-data-rows-anomaly"
+  | "bad-data-rows-confidence"
+  | "bad-data-rows-concentration"
   | "edited-cells"
   | "row-diff"
   | "lineage-trace";
+
+function isIssueView(key: OperationsViewKey): boolean {
+  return key.startsWith("bad-data-rows-");
+}
+
+function issueCategoryForView(key: OperationsViewKey): string | null {
+  const map: Partial<Record<OperationsViewKey, string>> = {
+    "bad-data-rows-validity": "validity",
+    "bad-data-rows-anomaly": "anomaly",
+    "bad-data-rows-confidence": "confidence",
+    "bad-data-rows-concentration": "concentration",
+  };
+  return map[key] ?? null;
+}
 type RecalcTarget = "security" | "holding";
 type PersistedReviewState = {
   datasetCode?: DatasetCode;
@@ -184,9 +201,24 @@ const ANALYSIS_VIEWS: Record<DatasetCode, Array<{ key: AnalysisViewKey; label: s
 
 const OPERATIONS_VIEWS: Array<{ key: OperationsViewKey; label: string; description: string }> = [
   {
-    key: "bad-data-rows",
-    label: "Bad data rows",
-    description: "Non-blocking integrity issues logged for the selected daily review run.",
+    key: "bad-data-rows-validity",
+    label: "Validity issues",
+    description: "Missing or structurally invalid fields that must be corrected before export.",
+  },
+  {
+    key: "bad-data-rows-anomaly",
+    label: "Anomalies",
+    description: "Fields that changed significantly vs. the prior period and warrant expert review.",
+  },
+  {
+    key: "bad-data-rows-confidence",
+    label: "Low confidence",
+    description: "Holdings rows where source confidence is below 0.30 — verify against an alternative source.",
+  },
+  {
+    key: "bad-data-rows-concentration",
+    label: "Concentration",
+    description: "Holdings where a single filer holds more than 10% of shares outstanding.",
   },
   {
     key: "edited-cells",
@@ -1582,6 +1614,21 @@ export function ReviewTab() {
     () => getSnapshotKeyFromSelection(datasetCode, selectedSnapshot),
     [datasetCode, selectedSnapshot],
   );
+  const operationsViewCounts = useMemo(() => {
+    const counts: Partial<Record<OperationsViewKey, number>> = {};
+    for (const view of OPERATIONS_VIEWS) {
+      const category = issueCategoryForView(view.key);
+      if (category) {
+        counts[view.key] = issueRows.filter((r) => r.issue_category === category).length;
+      }
+    }
+    const editedCellsCacheKey = selectedSnapshotKey ? `${selectedSnapshotKey}:edited-cells` : "";
+    const cachedEdited = editedCellsCacheKey ? operationsCacheRef.current[editedCellsCacheKey] : undefined;
+    if (cachedEdited) {
+      counts["edited-cells"] = cachedEdited.length;
+    }
+    return counts;
+  }, [issueRows, selectedSnapshotKey, operationsRows]);
   const snapshotState = selectedSnapshot?.review_state ?? "";
   const selectedReviewBusinessDate = selectedSnapshot?.business_date ?? businessDate ?? null;
   const workspaceFinalizedForSelectedDate = Boolean(
@@ -2465,9 +2512,12 @@ export function ReviewTab() {
       setOperationsTitle(view.label);
       setOperationsDescription(view.description);
 
-      if (activeOperationsView === "bad-data-rows") {
+      if (isIssueView(activeOperationsView)) {
         if (!cancelled) {
-          setOperationsRows(issueRows);
+          const category = issueCategoryForView(activeOperationsView);
+          setOperationsRows(
+            category ? issueRows.filter((r) => r.issue_category === category) : issueRows,
+          );
           setOperationsError(issueError);
           setLoadingOperations(false);
         }
@@ -3091,25 +3141,25 @@ export function ReviewTab() {
     }
   }
 
-  const operationsLoading = activeOperationsView === "bad-data-rows" ? loadingIssues : loadingOperations;
+  const operationsLoading = isIssueView(activeOperationsView) ? loadingIssues : loadingOperations;
   const analysisHiddenColumns =
     activeAnalysisView === "peer-holders" || activeAnalysisView === "filer-portfolio"
       ? ["holding_review_row_id"]
       : [];
   const operationsHiddenColumns =
-    activeOperationsView === "bad-data-rows"
+    isIssueView(activeOperationsView)
       ? getBadDataHiddenColumns(datasetCode)
       : activeOperationsView === "edited-cells"
         ? ["edit_key"]
         : [];
   const operationsColumnOrder =
-    activeOperationsView === "bad-data-rows"
+    isIssueView(activeOperationsView)
       ? getBadDataColumnOrder(datasetCode)
       : activeOperationsView === "edited-cells"
         ? EDITED_CELLS_COLUMN_ORDER[datasetCode]
         : undefined;
   const operationsCellClassName =
-    activeOperationsView === "bad-data-rows"
+    isIssueView(activeOperationsView)
       ? (row: RowsetRow, column: string) => {
           const issueRole = String(row.issue_role ?? "");
           const issueStatus = String(row.issue_status ?? "");
@@ -3126,7 +3176,7 @@ export function ReviewTab() {
         }
       : undefined;
   const operationsRowClassName =
-    activeOperationsView === "bad-data-rows"
+    isIssueView(activeOperationsView)
       ? (row: RowsetRow) => {
           const issueRole = String(row.issue_role ?? "");
           const issueStatus = String(row.issue_status ?? "");
@@ -3360,7 +3410,7 @@ export function ReviewTab() {
               {committingChanges ? "Committing..." : `Commit changes${pendingEditCount ? ` (${pendingEditCount})` : ""}`}
             </button>
             <button
-              className="ghost-button"
+              className="warning-button"
               disabled={pendingEditCount === 0 || committingChanges}
               onClick={discardPendingChanges}
               type="button"
@@ -3368,7 +3418,7 @@ export function ReviewTab() {
               Discard pending
             </button>
             <button
-              className="secondary-button"
+              className="approve-button"
               disabled={validationDisabled}
               onClick={() => void handleValidateDataset()}
               type="button"
@@ -3572,16 +3622,19 @@ export function ReviewTab() {
           </div>
 
           <div className="button-row wrap">
-            {OPERATIONS_VIEWS.map((view) => (
-              <button
-                className={activeOperationsView === view.key ? "secondary-button" : "ghost-button"}
-                key={view.key}
-                onClick={() => setActiveOperationsView(view.key)}
-                type="button"
-              >
-                {view.label}
-              </button>
-            ))}
+            {OPERATIONS_VIEWS.map((view) => {
+              const count = operationsViewCounts[view.key];
+              return (
+                <button
+                  className={activeOperationsView === view.key ? "secondary-button" : "ghost-button"}
+                  key={view.key}
+                  onClick={() => setActiveOperationsView(view.key)}
+                  type="button"
+                >
+                  {count !== undefined ? `${view.label} (${count})` : view.label}
+                </button>
+              );
+            })}
           </div>
 
           <RowsetTable
@@ -3590,11 +3643,11 @@ export function ReviewTab() {
             cellClassName={operationsCellClassName}
             hiddenColumns={operationsHiddenColumns}
             loading={operationsLoading}
-            onRowClick={activeOperationsView === "bad-data-rows" ? handleIssueRowSelect : undefined}
+            onRowClick={isIssueView(activeOperationsView) ? handleIssueRowSelect : undefined}
             columnOrder={operationsColumnOrder}
             rowClassName={operationsRowClassName}
             rowKeyColumn={
-              activeOperationsView === "bad-data-rows"
+              isIssueView(activeOperationsView)
                 ? "issue_audit_id"
                 : activeOperationsView === "edited-cells"
                   ? "edit_key"
@@ -3602,7 +3655,7 @@ export function ReviewTab() {
             }
             responsiveWrap
             rows={operationsRows}
-            selectedRowKey={activeOperationsView === "bad-data-rows" ? selectedIssueAuditId : undefined}
+            selectedRowKey={isIssueView(activeOperationsView) ? selectedIssueAuditId : undefined}
             subtitle={operationsDescription}
             title={operationsTitle}
           />

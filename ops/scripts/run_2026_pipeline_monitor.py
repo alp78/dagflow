@@ -146,11 +146,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--landing-root-dir",
-        default=os.getenv("LANDING_ROOT_DIR") or str(ROOT / "source_landing"),
+        default=os.getenv("LANDING_ROOT_DIR") or str(ROOT / "workflows/security_shareholder/source_landing"),
     )
     parser.add_argument(
         "--export-root-dir",
-        default=os.getenv("EXPORT_ROOT_DIR") or str(ROOT / "generated_exports"),
+        default=os.getenv("EXPORT_ROOT_DIR") or str(ROOT / "workflows/security_shareholder/generated_exports"),
     )
     parser.add_argument("--edgar-identity", default=os.getenv("EDGAR_IDENTITY") or "")
     parser.add_argument("--openfigi-api-key", default=os.getenv("OPENFIGI_API_KEY") or None)

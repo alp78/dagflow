@@ -1,0 +1,9 @@
+{
+  "workflows": [
+    {
+      "name": "security_shareholder",
+      "package": "dagflow_security_shareholder",
+      "path": "workflows/security_shareholder"
+    }
+  ]
+}

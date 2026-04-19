@@ -10,16 +10,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /workspace
 
-RUN pip install --no-cache-dir uv \
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends graphviz \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir uv \
     && mkdir -p /opt/dagster/dagster_home
 
-COPY pyproject.toml README.md ./
-COPY apps/dagster/pyproject.toml apps/dagster/pyproject.toml
-COPY packages/pipeline-framework/pyproject.toml packages/pipeline-framework/pyproject.toml
-COPY packages/source-adapters/pyproject.toml packages/source-adapters/pyproject.toml
 COPY . .
-
-RUN uv sync --package dagflow-dagster --no-dev \
+RUN uv sync --all-packages --no-dev \
     && cp apps/dagster/dagster.yaml /opt/dagster/dagster_home/dagster.yaml
 
 EXPOSE 3000 4000

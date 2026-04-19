@@ -16,7 +16,9 @@ _ACTIVE_LOADS_LOCK = Lock()
 _EXPORT_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="dagflow-export")
 _ACTIVE_EXPORTS: dict[str, Future[Any]] = {}
 _ACTIVE_EXPORTS_LOCK = Lock()
-WORKSPACE_PIPELINE_ORDER = ("security_master", "shareholder_holdings")
+_RESET_LOCK = Lock()
+WORKSPACE_PIPELINE_ORDER = ("security_shareholder",)
+PIPELINE_CODE = "security_shareholder"
 
 
 def deterministic_run_id(pipeline_code: str, business_date: date) -> uuid.UUID:
@@ -124,12 +126,7 @@ def _planned_pipeline_runs(
 
 
 def _workspace_relations(pipeline_code: str) -> dict[str, str]:
-    return {
-        "security_master": "primary" if pipeline_code == "security_master" else "prerequisite",
-        "shareholder_holdings": (
-            "primary" if pipeline_code == "shareholder_holdings" else "companion"
-        ),
-    }
+    return {pipeline_code: "primary"}
 
 
 def _required_workspace_pipelines(pipeline_code: str) -> tuple[str, ...]:
@@ -525,19 +522,11 @@ def run_pipeline_for_date(
             "status": "pending_review",
         }
 
-    if pipeline_code == "shareholder_holdings":
-        security_state = control_plane.current_pipeline_state("security_master")
-        if security_state is None or security_state.get("last_business_date") != business_date:
-            run_pipeline_for_date(
-                "security_master",
-                business_date,
-                workspace_prepared=workspace_prepared,
-            )
-
     run_id = deterministic_run_id(pipeline_code, business_date)
+    dataset_code = "security_master" if pipeline_code == "security_shareholder" else pipeline_code
     control_plane.prepare_pipeline_run(
         pipeline_code=pipeline_code,
-        dataset_code=pipeline_code,
+        dataset_code=dataset_code,
         run_id=run_id,
         business_date=business_date,
         orchestrator_run_id=None,
@@ -558,7 +547,7 @@ def run_pipeline_for_date(
         raise RuntimeError(
             f"Dagster job for {pipeline_code} on {business_date.isoformat()} failed."
         )
-    if pipeline_code == "security_master":
+    if pipeline_code in ("security_master", "security_shareholder"):
         control_plane.relink_current_holdings_security_reviews(business_date)
     return {
         "pipeline_code": pipeline_code,
@@ -604,39 +593,44 @@ def reset_workbench(
     actor: str = "ui",
     notes: str | None = None,
 ) -> dict[str, Any]:
-    with _ACTIVE_LOADS_LOCK:
-        active_loads = [
-            key
-            for key, payload in _ACTIVE_LOADS.items()
-            if isinstance(payload.get("future"), Future) and not payload["future"].done()
-        ]
-    with _ACTIVE_EXPORTS_LOCK:
-        active_exports = [
-            run_id for run_id, future in _ACTIVE_EXPORTS.items() if not future.done()
-        ]
-    if active_loads or active_exports:
-        raise RuntimeError(
-            "The workbench cannot be reset while Dagster is still loading or exporting."
-        )
-
-    resources = build_resources()
-    control_plane = _control_plane(resources)
-    reset_payloads: list[dict[str, Any]] = []
-    for pipeline_code in WORKSPACE_PIPELINE_ORDER:
-        reset_payloads.append(
-            control_plane.wipe_pipeline_workspace_for_load(
-                pipeline_code=pipeline_code,
-                dataset_code=pipeline_code,
-                actor=actor,
-                notes=notes
-                or "Reset reviewer workbench and clear the current operational workspace",
+    if not _RESET_LOCK.acquire(blocking=False):
+        raise RuntimeError("A workbench reset is already in progress.")
+    try:
+        with _ACTIVE_LOADS_LOCK:
+            active_loads = [
+                key
+                for key, payload in _ACTIVE_LOADS.items()
+                if isinstance(payload.get("future"), Future) and not payload["future"].done()
+            ]
+        with _ACTIVE_EXPORTS_LOCK:
+            active_exports = [
+                run_id for run_id, future in _ACTIVE_EXPORTS.items() if not future.done()
+            ]
+        if active_loads or active_exports:
+            raise RuntimeError(
+                "The workbench cannot be reset while Dagster is still loading or exporting."
             )
-        )
-    with _ACTIVE_LOADS_LOCK:
-        _ACTIVE_LOADS.clear()
-    with _ACTIVE_EXPORTS_LOCK:
-        _ACTIVE_EXPORTS.clear()
-    return {
-        "workspace": "review",
-        "pipelines": reset_payloads,
-    }
+
+        resources = build_resources()
+        control_plane = _control_plane(resources)
+        reset_payloads: list[dict[str, Any]] = []
+        for pipeline_code in WORKSPACE_PIPELINE_ORDER:
+            reset_payloads.append(
+                control_plane.wipe_pipeline_workspace_for_load(
+                    pipeline_code=pipeline_code,
+                    dataset_code=pipeline_code,
+                    actor=actor,
+                    notes=notes
+                    or "Reset reviewer workbench and clear the current operational workspace",
+                )
+            )
+        with _ACTIVE_LOADS_LOCK:
+            _ACTIVE_LOADS.clear()
+        with _ACTIVE_EXPORTS_LOCK:
+            _ACTIVE_EXPORTS.clear()
+        return {
+            "workspace": "review",
+            "pipelines": reset_payloads,
+        }
+    finally:
+        _RESET_LOCK.release()

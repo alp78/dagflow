@@ -10,12 +10,9 @@ dependencies = [
   "dagster-dbt>=0.26.10",
   "dagster-webserver>=1.13.0,<1.14.0",
   "dbt-postgres>=1.9.0",
-  "edgartools>=5.30.0",
-  "httpx>=0.28.1",
-  "pandas>=3.0.0",
-  "pyarrow>=19.0.1",
   "psycopg[binary]>=3.2.9",
   "pydantic-settings>=2.9.1",
+  "graphviz>=0.20",
 ]
 
 [tool.uv.sources]
@@ -25,3 +22,6 @@ dagflow-source-adapters = { workspace = true }
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dagflow_dagster"]

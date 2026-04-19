@@ -166,6 +166,41 @@ export const api = {
       `/queries/holding/${holdingReviewRowId}/filer-weight-bands`,
       options,
     ),
+  getSecurityHoldings: (securityReviewRowId: number, options?: RequestOptions) =>
+    request<Array<Record<string, unknown>>>(
+      `/queries/security/${securityReviewRowId}/holdings`,
+      options,
+    ),
+  getRowMeta: (reviewTable: string, rowId: number, rowHash?: string, options?: RequestOptions) => {
+    const params = new URLSearchParams({ review_table: reviewTable, row_id: String(rowId) });
+    if (rowHash) params.set("row_hash", rowHash);
+    return request<{ diff: Record<string, unknown>; lineage: Array<Record<string, unknown>> }>(
+      `/review/row-meta?${params.toString()}`,
+      options,
+    );
+  },
+  validateWorkspace: (payload: { business_date: string; run_id?: string; actor?: string; notes?: string }) =>
+    request<Record<string, unknown>>("/workflow/validate-workspace", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getCalendarDays: (calendarCode: string, year?: number, options?: RequestOptions) => {
+    const params = new URLSearchParams();
+    if (year) params.set("year", String(year));
+    return request<Array<{ date: string; is_business_day: boolean; day_type: string; holiday_name: string | null }>>(
+      `/workflow/calendar/${calendarCode}?${params.toString()}`, options,
+    );
+  },
+  captureSources: (payload: { pipeline_code: string; dataset_code: string; business_date: string; actor: string }) =>
+    request<Record<string, unknown>>("/workflow/capture-sources", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteSourceFiles: (payload: { pipeline_code: string; dataset_code: string; business_date: string; actor: string }) =>
+    request<Record<string, unknown>>("/workflow/delete-source-files", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 export const dagsterBaseUrl =

@@ -11,8 +11,8 @@ class DagsterSettings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@pgbouncer:6432/dagflow"
     direct_database_url: str = "postgresql://postgres:postgres@postgres:5432/dagflow"
     dbt_profiles_dir: str = "/workspace/dbt"
-    export_root_dir: str = "/workspace/generated_exports"
-    landing_root_dir: str = "/workspace/source_landing"
+    export_root_dir: str = "/workspace/workflows/security_shareholder/generated_exports"
+    landing_root_dir: str = "/workspace/workflows/security_shareholder/source_landing"
     edgar_identity: str = "Dagflow local dev support@dagflow.local"
     sec_13f_lookback_days: int = 14
     sec_13f_filing_limit: int = 50
@@ -34,6 +34,13 @@ class DagsterSettings(BaseSettings):
     @property
     def resolved_landing_root_dir(self) -> Path:
         configured_path = Path(self.landing_root_dir)
+        if configured_path.exists() or configured_path.is_absolute():
+            return configured_path
+        return Path(__file__).resolve().parents[4] / configured_path
+
+    @property
+    def resolved_export_root_dir(self) -> Path:
+        configured_path = Path(self.export_root_dir)
         if configured_path.exists() or configured_path.is_absolute():
             return configured_path
         return Path(__file__).resolve().parents[4] / configured_path

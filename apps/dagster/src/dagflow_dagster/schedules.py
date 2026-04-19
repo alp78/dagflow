@@ -32,6 +32,7 @@ def build_review_validation_sensor(job: Any, pipeline_code: str) -> Any:
         name=f"{pipeline_code}_review_validation_sensor",
         job=job,
         default_status=DefaultSensorStatus.RUNNING,
+        minimum_interval_seconds=5,
         required_resource_keys={"control_plane"},
     )
     def _sensor(context: SensorEvaluationContext) -> Any:

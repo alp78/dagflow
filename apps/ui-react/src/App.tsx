@@ -2,17 +2,32 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DashboardTab } from "./tabs/DashboardTab";
 import { PipelineTab } from "./tabs/PipelineTab";
-import { ReviewTab } from "./tabs/ReviewTab";
+import ReviewWorkbench from "./tabs/review";
 
 type TabKey = "pipeline" | "review" | "dashboard";
 
-const tabs: Array<{ key: TabKey; label: string; kicker: string }> = [
-  { key: "pipeline", label: "Pipeline", kicker: "Control plane" },
-  { key: "review", label: "Review / CRUD", kicker: "Human-in-the-loop" },
-  { key: "dashboard", label: "Dashboard", kicker: "Ops + explorer" },
+type Workflow = {
+  key: string;
+  label: string;
+  pipelines: string[];
+};
+
+const WORKFLOWS: Workflow[] = [
+  {
+    key: "security_shareholder",
+    label: "Securities & Holdings",
+    pipelines: ["security_master", "shareholder_holdings"],
+  },
+];
+
+const tabs: Array<{ key: TabKey; label: string }> = [
+  { key: "pipeline", label: "Pipeline" },
+  { key: "review", label: "Review" },
+  { key: "dashboard", label: "Dashboard" },
 ];
 
 const ACTIVE_TAB_STORAGE_KEY = "dagflow.activeTab";
+const ACTIVE_WORKFLOW_STORAGE_KEY = "dagflow.activeWorkflow";
 
 function getStoredTab(): TabKey {
   if (typeof window === "undefined") {
@@ -32,21 +47,38 @@ function getStoredTab(): TabKey {
   return "pipeline";
 }
 
+function getStoredWorkflow(): string {
+  if (typeof window === "undefined") {
+    return WORKFLOWS[0].key;
+  }
+  const stored = window.localStorage.getItem(ACTIVE_WORKFLOW_STORAGE_KEY);
+  if (stored && WORKFLOWS.some((wf) => wf.key === stored)) {
+    return stored;
+  }
+  return WORKFLOWS[0].key;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>(getStoredTab);
-  const [mountedTabs, setMountedTabs] = useState<Record<TabKey, true>>(() => ({
-    [getStoredTab()]: true,
-  }) as Record<TabKey, true>);
+  const [activeWorkflow, setActiveWorkflow] = useState<string>(getStoredWorkflow);
+  const [mountedTabs, setMountedTabs] = useState<Record<TabKey, true>>(
+    () => ({ [getStoredTab()]: true }) as Record<TabKey, true>,
+  );
   const scrollPositions = useRef<Record<TabKey, number>>({
     pipeline: 0,
     review: 0,
     dashboard: 0,
   });
 
+  const workflow = useMemo(
+    () => WORKFLOWS.find((wf) => wf.key === activeWorkflow) ?? WORKFLOWS[0],
+    [activeWorkflow],
+  );
+
   const tabContent = useMemo(
     () => ({
       pipeline: <PipelineTab />,
-      review: <ReviewTab />,
+      review: <ReviewWorkbench />,
       dashboard: <DashboardTab />,
     }),
     [],
@@ -63,6 +95,12 @@ export default function App() {
     });
   }, [activeTab]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ACTIVE_WORKFLOW_STORAGE_KEY, activeWorkflow);
+    }
+  }, [activeWorkflow]);
+
   function handleTabChange(nextTab: TabKey) {
     if (typeof window !== "undefined") {
       scrollPositions.current[activeTab] = window.scrollY;
@@ -72,66 +110,66 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
-      <div className="backdrop-grid" />
-      <header className="hero">
-        <div className="hero-brand">
-          <div className="brand-lockup">
-            <div className="brand-mark">DF</div>
-            <div>
-              <p className="eyebrow">Dagflow Platform</p>
-              <h1>Unified SEC Review And Export Console</h1>
-              <p className="hero-summary">
-                Compact operator workspace for orchestration, reviewer intervention, and daily
-                export delivery across SEC reference and 13F holdings pipelines.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="hero-meta" aria-label="Platform context">
-          <div className="hero-chip">
-            <span>Mode</span>
-            <strong>Local / Prod-grade</strong>
-          </div>
-          <div className="hero-chip">
-            <span>Sources</span>
-            <strong>EDGAR · OpenFIGI · Finnhub</strong>
-          </div>
-          <div className="hero-chip">
-            <span>Workflow</span>
-            <strong>Review gate · Dagster resume</strong>
-          </div>
-        </div>
-      </header>
-
-      <nav className="tab-strip" aria-label="Main navigation">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            className={`tab-button ${activeTab === tab.key ? "active" : ""}`}
-            onClick={() => handleTabChange(tab.key)}
-            type="button"
-          >
-            <span>{tab.label}</span>
-            <small>{tab.kicker}</small>
-          </button>
-        ))}
-      </nav>
-
-      <main className="tab-panel">
-        {tabs.map((tab) =>
-          mountedTabs[tab.key] ? (
-            <section
-              aria-hidden={activeTab !== tab.key}
-              className={`tab-panel-section ${activeTab === tab.key ? "active" : "inactive"}`}
-              hidden={activeTab !== tab.key}
-              key={tab.key}
+    <div className="app-layout">
+      <aside className="app-sidebar">
+        <div className="sidebar-brand">Dagflow</div>
+        <nav className="sidebar-nav" aria-label="Workflows">
+          <div className="sidebar-section-label">Workflows</div>
+          {WORKFLOWS.map((wf) => (
+            <button
+              key={wf.key}
+              className={`sidebar-item ${activeWorkflow === wf.key ? "active" : ""}`}
+              onClick={() => setActiveWorkflow(wf.key)}
+              type="button"
             >
-              {tabContent[tab.key]}
-            </section>
-          ) : null,
-        )}
-      </main>
+              {wf.label}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <a
+            className="sidebar-link"
+            href="http://localhost:3001"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Dagster UI
+          </a>
+        </div>
+      </aside>
+
+      <div className="app-main">
+        <header className="app-header">
+          <span className="app-header-context">{workflow.label}</span>
+          <nav className="tab-strip" aria-label="Main navigation">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`tab-button ${activeTab === tab.key ? "active" : ""}`}
+                onClick={() => handleTabChange(tab.key)}
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </header>
+
+        <main className="tab-panel">
+          {tabs.map((tab) =>
+            mountedTabs[tab.key] ? (
+              <section
+                aria-hidden={activeTab !== tab.key}
+                className={`tab-panel-section ${activeTab === tab.key ? "active" : "inactive"}`}
+                hidden={activeTab !== tab.key}
+                key={tab.key}
+              >
+                {tabContent[tab.key]}
+              </section>
+            ) : null,
+          )}
+        </main>
+      </div>
     </div>
   );
 }

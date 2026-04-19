@@ -107,11 +107,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--export-root-dir",
-        default=os.getenv("EXPORT_ROOT_DIR") or str(ROOT / "generated_exports"),
+        default=os.getenv("EXPORT_ROOT_DIR") or str(ROOT / "workflows/security_shareholder/generated_exports"),
     )
     parser.add_argument(
         "--landing-root-dir",
-        default=os.getenv("LANDING_ROOT_DIR") or str(ROOT / "source_landing"),
+        default=os.getenv("LANDING_ROOT_DIR") or str(ROOT / "workflows/security_shareholder/source_landing"),
     )
     parser.add_argument("--edgar-identity", default=os.getenv("EDGAR_IDENTITY") or "")
     parser.add_argument("--openfigi-api-key", default=os.getenv("OPENFIGI_API_KEY") or None)
@@ -202,8 +202,9 @@ def main() -> int:
         security_hash = digest_rows(ticker_rows + fact_rows)
         holdings_hash = digest_rows(snapshot.filer_records + snapshot.holding_records)
 
-        security_run_id = deterministic_run_id("security_master", business_date)
-        holdings_run_id = deterministic_run_id("shareholder_holdings", business_date)
+        run_id = deterministic_run_id("security_shareholder", business_date)
+        security_run_id = run_id
+        holdings_run_id = run_id
 
         if (
             previous_security_hash is not None
@@ -216,18 +217,11 @@ def main() -> int:
             else:
                 log("  no source or dimension change detected; recording lightweight daily runs")
             control_plane.ensure_pipeline_run(
-                pipeline_code="security_master",
+                pipeline_code="security_shareholder",
                 dataset_code="security_master",
-                run_id=security_run_id,
+                run_id=run_id,
                 business_date=business_date,
-                orchestrator_run_id=f"backfill-security-master-{business_date.isoformat()}",
-            )
-            control_plane.ensure_pipeline_run(
-                pipeline_code="shareholder_holdings",
-                dataset_code="shareholder_holdings",
-                run_id=holdings_run_id,
-                business_date=business_date,
-                orchestrator_run_id=f"backfill-shareholder-holdings-{business_date.isoformat()}",
+                orchestrator_run_id=f"backfill-{business_date.isoformat()}",
             )
             if args.publish_review_snapshots and previous_security_review_run_id is not None:
                 security_review_count = control_plane.clone_historical_review_snapshot(
@@ -254,30 +248,26 @@ def main() -> int:
                     f"{holdings_review_count} review rows from {previous_holdings_review_run_id}"
                 )
                 previous_holdings_review_run_id = holdings_run_id
-            for _pipeline_code, _dataset_code, run_id in (
-                ("security_master", "security_master", security_run_id),
-                ("shareholder_holdings", "shareholder_holdings", holdings_run_id),
-            ):
-                control_plane.complete_pipeline_run(
-                    run_id,
-                    status="historical_loaded",
-                    metadata={
-                        "mode": "backfill",
-                        "change": "none",
-                        "review_snapshot_published": args.publish_review_snapshots,
-                        "review_snapshot_mode": (
-                            "cloned" if args.publish_review_snapshots else "none"
-                        ),
-                    },
-                )
+            control_plane.complete_pipeline_run(
+                run_id,
+                status="historical_loaded",
+                metadata={
+                    "mode": "backfill",
+                    "change": "none",
+                    "review_snapshot_published": args.publish_review_snapshots,
+                    "review_snapshot_mode": (
+                        "cloned" if args.publish_review_snapshots else "none"
+                    ),
+                },
+            )
             continue
 
         control_plane.ensure_pipeline_run(
-            pipeline_code="security_master",
+            pipeline_code="security_shareholder",
             dataset_code="security_master",
-            run_id=security_run_id,
+            run_id=run_id,
             business_date=business_date,
-            orchestrator_run_id=f"backfill-security-master-{business_date.isoformat()}",
+            orchestrator_run_id=f"backfill-{business_date.isoformat()}",
         )
         try:
             log(
@@ -296,15 +286,15 @@ def main() -> int:
                 [
                     "build",
                     "--select",
-                    "tag:security_master",
-                    "dim_security_snapshot",
+                    "tag:security_shareholder",
+                    "securities_snapshot",
                     "--exclude",
                     "tag:exports",
                     "--vars",
                     (
                         "{"
                         f"\"dagflow_run_id\":\"{security_run_id}\","
-                        "\"dagflow_pipeline_code\":\"security_master\","
+                        "\"dagflow_pipeline_code\":\"security_shareholder\","
                         f"\"dagflow_business_date\":\"{business_date.isoformat()}\""
                         "}"
                     ),
@@ -336,7 +326,7 @@ def main() -> int:
             log(f"  security_master: completed run {security_run_id}")
         except Exception as error:
             control_plane.capture_failure(
-                pipeline_code="security_master",
+                pipeline_code="security_shareholder",
                 dataset_code="security_master",
                 run_id=security_run_id,
                 step_name="backfill_history",
@@ -347,7 +337,7 @@ def main() -> int:
             raise
 
         control_plane.ensure_pipeline_run(
-            pipeline_code="shareholder_holdings",
+            pipeline_code="security_shareholder",
             dataset_code="shareholder_holdings",
             run_id=holdings_run_id,
             business_date=business_date,
@@ -367,15 +357,15 @@ def main() -> int:
                 [
                     "build",
                     "--select",
-                    "tag:shareholder_holdings",
-                    "dim_shareholder_snapshot",
+                    "tag:security_shareholder",
+                    "holdings_snapshot",
                     "--exclude",
                     "tag:exports",
                     "--vars",
                     (
                         "{"
                         f"\"dagflow_run_id\":\"{holdings_run_id}\","
-                        "\"dagflow_pipeline_code\":\"shareholder_holdings\","
+                        "\"dagflow_pipeline_code\":\"security_shareholder\","
                         f"\"dagflow_business_date\":\"{business_date.isoformat()}\","
                         f"\"dagflow_security_run_id\":\"{security_run_id}\""
                         "}"
@@ -411,7 +401,7 @@ def main() -> int:
             previous_holdings_hash = holdings_hash
         except Exception as error:
             control_plane.capture_failure(
-                pipeline_code="shareholder_holdings",
+                pipeline_code="security_shareholder",
                 dataset_code="shareholder_holdings",
                 run_id=holdings_run_id,
                 step_name="backfill_history",

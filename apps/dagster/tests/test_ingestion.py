@@ -2,7 +2,7 @@ from datetime import date
 
 import pandas as pd
 import pytest
-from dagflow_dagster.ingestion import (
+from dagflow_security_shareholder.ingestion import (
     EdgarIngestionService,
     Historical13FFiling,
     IdentifierResolver,
@@ -200,7 +200,7 @@ def test_company_ticker_rows_prefer_configured_ticker_per_cik(
 
     monkeypatch.setattr(EdgarIngestionService, "_ensure_identity", lambda _self: None)
     monkeypatch.setattr(
-        "dagflow_dagster.ingestion.get_company_tickers",
+        "dagflow_security_shareholder.ingestion.get_company_tickers",
         lambda: pd.DataFrame(
             [
                 {

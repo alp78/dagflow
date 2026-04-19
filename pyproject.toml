@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Dagflow monorepo workspace"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "holidays>=0.94",
+]
 
 [dependency-groups]
 dev = [
@@ -23,6 +25,7 @@ members = [
   "apps/dagster",
   "packages/pipeline-framework",
   "packages/source-adapters",
+  "workflows/*",
 ]
 
 [tool.pytest.ini_options]
@@ -73,5 +76,9 @@ module = ["dagflow_api.repository"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["dagflow_dagster.assets"]
+module = [
+    "dagflow_security_shareholder.pipelines.security_master.assets",
+    "dagflow_security_shareholder.pipelines.shareholder_holdings.assets",
+    "dagflow_security_shareholder.ingestion",
+]
 ignore_errors = true

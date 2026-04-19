@@ -1,0 +1,438 @@
+{
+  "security_shareholder": {
+    "workflow": "security_shareholder",
+    "nodes": [
+      {
+        "id": "security_shareholder__source_capture__holdings_13f_capture",
+        "label": "Capture\nHoldings",
+        "stepKey": "security_shareholder__source_capture",
+        "col": 0.0,
+        "row": 0.0,
+        "assetKeys": [
+          "security_shareholder__source_capture__holdings_13f_capture"
+        ],
+        "groupName": "source_capture",
+        "groups": [
+          "source_capture"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "source_capture",
+          "dagflow_tool": "python",
+          "dagflow_database": "filesystem",
+          "dagflow_business_name": "Capture sources",
+          "dagflow_business_purpose": "Captures all four daily source files \u2014 SEC company tickers, SEC company facts, 13F holdings, and 13F filer roster \u2014 as immutable landing artifacts.",
+          "dagflow_business_significance": "Anchors the entire pipeline run; every downstream load, transform, and review step depends on these captured files being present."
+        },
+        "stepKeys": [
+          "holdings_13f_capture"
+        ]
+      },
+      {
+        "id": "security_shareholder__source_capture__holdings_13f_filers_capture",
+        "label": "Capture\nFilers",
+        "stepKey": "security_shareholder__source_capture",
+        "col": 0.0,
+        "row": 1.035027220938017,
+        "assetKeys": [
+          "security_shareholder__source_capture__holdings_13f_filers_capture"
+        ],
+        "groupName": "source_capture",
+        "groups": [
+          "source_capture"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "source_capture",
+          "dagflow_tool": "python",
+          "dagflow_database": "filesystem",
+          "dagflow_business_name": "Capture sources",
+          "dagflow_business_purpose": "Captures all four daily source files \u2014 SEC company tickers, SEC company facts, 13F holdings, and 13F filer roster \u2014 as immutable landing artifacts.",
+          "dagflow_business_significance": "Anchors the entire pipeline run; every downstream load, transform, and review step depends on these captured files being present."
+        },
+        "stepKeys": [
+          "holdings_13f_filers_capture"
+        ]
+      },
+      {
+        "id": "security_shareholder__source_capture__sec_company_tickers_capture",
+        "label": "Capture\nTickers",
+        "stepKey": "security_shareholder__source_capture",
+        "col": 0.0,
+        "row": 2.0526229363244783,
+        "assetKeys": [
+          "security_shareholder__source_capture__sec_company_tickers_capture"
+        ],
+        "groupName": "source_capture",
+        "groups": [
+          "source_capture"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "source_capture",
+          "dagflow_tool": "python",
+          "dagflow_database": "filesystem",
+          "dagflow_business_name": "Capture sources",
+          "dagflow_business_purpose": "Captures all four daily source files \u2014 SEC company tickers, SEC company facts, 13F holdings, and 13F filer roster \u2014 as immutable landing artifacts.",
+          "dagflow_business_significance": "Anchors the entire pipeline run; every downstream load, transform, and review step depends on these captured files being present."
+        },
+        "stepKeys": [
+          "sec_company_tickers_capture"
+        ]
+      },
+      {
+        "id": "security_shareholder__source_capture__sec_company_facts_capture",
+        "label": "Capture\nFacts",
+        "stepKey": "security_shareholder__source_capture",
+        "col": 0.0,
+        "row": 3.070104967979082,
+        "assetKeys": [
+          "security_shareholder__source_capture__sec_company_facts_capture"
+        ],
+        "groupName": "source_capture",
+        "groups": [
+          "source_capture"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "source_capture",
+          "dagflow_tool": "python",
+          "dagflow_database": "filesystem",
+          "dagflow_business_name": "Capture sources",
+          "dagflow_business_purpose": "Captures all four daily source files \u2014 SEC company tickers, SEC company facts, 13F holdings, and 13F filer roster \u2014 as immutable landing artifacts.",
+          "dagflow_business_significance": "Anchors the entire pipeline run; every downstream load, transform, and review step depends on these captured files being present."
+        },
+        "stepKeys": [
+          "sec_company_facts_capture"
+        ]
+      },
+      {
+        "id": "security_shareholder__raw_holdings",
+        "label": "Raw Holdings",
+        "stepKey": "load_to_raw",
+        "col": 1.0,
+        "row": 0.0,
+        "assetKeys": [
+          "security_shareholder__raw_holdings"
+        ],
+        "groupName": "contract_load",
+        "groups": [
+          "contract_load"
+        ],
+        "metadata": {},
+        "stepKeys": [
+          "load_to_raw"
+        ]
+      },
+      {
+        "id": "security_shareholder__raw_filers",
+        "label": "Raw Filers",
+        "stepKey": "load_to_raw",
+        "col": 1.0,
+        "row": 1.035027220938017,
+        "assetKeys": [
+          "security_shareholder__raw_filers"
+        ],
+        "groupName": "contract_load",
+        "groups": [
+          "contract_load"
+        ],
+        "metadata": {},
+        "stepKeys": [
+          "load_to_raw"
+        ]
+      },
+      {
+        "id": "security_shareholder__raw_tickers",
+        "label": "Raw Tickers",
+        "stepKey": "load_to_raw",
+        "col": 1.0,
+        "row": 2.0526229363244783,
+        "assetKeys": [
+          "security_shareholder__raw_tickers"
+        ],
+        "groupName": "contract_load",
+        "groups": [
+          "contract_load"
+        ],
+        "metadata": {},
+        "stepKeys": [
+          "load_to_raw"
+        ]
+      },
+      {
+        "id": "security_shareholder__raw_facts",
+        "label": "Raw Facts",
+        "stepKey": "load_to_raw",
+        "col": 1.0,
+        "row": 3.070104967979082,
+        "assetKeys": [
+          "security_shareholder__raw_facts"
+        ],
+        "groupName": "contract_load",
+        "groups": [
+          "contract_load"
+        ],
+        "metadata": {},
+        "stepKeys": [
+          "load_to_raw"
+        ]
+      },
+      {
+        "id": "security_shareholder__securities",
+        "label": "Securities",
+        "stepKey": "security_shareholder_transform_assets",
+        "col": 2.0,
+        "row": 2.070104967979082,
+        "assetKeys": [
+          "security_shareholder__securities"
+        ],
+        "groupName": "warehouse_transform",
+        "groups": [
+          "warehouse_transform"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "warehouse_transform",
+          "dagflow_tool": "dbt",
+          "dagflow_database": "postgres",
+          "dagflow_business_name": "Securities",
+          "dagflow_business_purpose": "Builds the daily security master by joining SEC ticker identity with outstanding-share facts and deriving free-float and investability metrics.",
+          "dagflow_business_significance": "Serves as the governed security dimension used by review, holdings enrichment, and export.",
+          "dagflow_relation": "marts.securities",
+          "dagflow_materialization": "table"
+        },
+        "stepKeys": [
+          "security_shareholder_transform_assets"
+        ]
+      },
+      {
+        "id": "security_shareholder__holdings",
+        "label": "Holdings",
+        "stepKey": "security_shareholder_transform_assets",
+        "col": 3.0,
+        "row": 1.035027220938017,
+        "assetKeys": [
+          "security_shareholder__holdings"
+        ],
+        "groupName": "warehouse_transform",
+        "groups": [
+          "warehouse_transform"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "warehouse_transform",
+          "dagflow_tool": "dbt",
+          "dagflow_database": "postgres",
+          "dagflow_business_name": "Holdings",
+          "dagflow_business_purpose": "Builds the daily shareholder holdings fact table by enriching 13F positions with filer identity, security reference, and portfolio weights.",
+          "dagflow_business_significance": "Serves as the governed ownership fact used in review, audit, and delivery.",
+          "dagflow_relation": "marts.holdings",
+          "dagflow_materialization": "table"
+        },
+        "stepKeys": [
+          "security_shareholder_transform_assets"
+        ]
+      },
+      {
+        "id": "security_shareholder__review_snapshot__security_shareholder_shareholder_holdings_review",
+        "label": "Review\nHoldings",
+        "stepKey": "security_shareholder__review_snapshot",
+        "col": 4.0,
+        "row": 1.0525850417471925,
+        "assetKeys": [
+          "security_shareholder__review_snapshot__security_shareholder_shareholder_holdings_review"
+        ],
+        "groupName": "review",
+        "groups": [
+          "review"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "review",
+          "dagflow_tool": "python",
+          "dagflow_database": "postgres",
+          "dagflow_business_name": "Publish review",
+          "dagflow_business_purpose": "Publishes the curated securities and holdings mart rows into the reviewer workbenches for both datasets.",
+          "dagflow_business_significance": "This is the human approval boundary; reviewed rows must be approved before either dataset can be exported.",
+          "dagflow_relation": "review.security_master_daily / review.shareholder_holdings_daily"
+        },
+        "stepKeys": [
+          "security_shareholder_shareholder_holdings_review"
+        ]
+      },
+      {
+        "id": "security_shareholder__review_snapshot__security_shareholder_security_master_review",
+        "label": "Review\nSecurities",
+        "stepKey": "security_shareholder__review_snapshot",
+        "col": 4.0,
+        "row": 2.070104967979082,
+        "assetKeys": [
+          "security_shareholder__review_snapshot__security_shareholder_security_master_review"
+        ],
+        "groupName": "review",
+        "groups": [
+          "review"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "review",
+          "dagflow_tool": "python",
+          "dagflow_database": "postgres",
+          "dagflow_business_name": "Publish review",
+          "dagflow_business_purpose": "Publishes the curated securities and holdings mart rows into the reviewer workbenches for both datasets.",
+          "dagflow_business_significance": "This is the human approval boundary; reviewed rows must be approved before either dataset can be exported.",
+          "dagflow_relation": "review.security_master_daily / review.shareholder_holdings_daily"
+        },
+        "stepKeys": [
+          "security_shareholder_security_master_review"
+        ]
+      },
+      {
+        "id": "security_shareholder__holdings_export",
+        "label": "Holdings\nExport",
+        "stepKey": "security_shareholder_export_assets",
+        "col": 5.0,
+        "row": 1.0525850417471925,
+        "assetKeys": [
+          "security_shareholder__holdings_export"
+        ],
+        "groupName": "validated_export",
+        "groups": [
+          "validated_export"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "validated_export",
+          "dagflow_tool": "dbt",
+          "dagflow_database": "postgres",
+          "dagflow_business_name": "Holdings Export",
+          "dagflow_business_purpose": "Shapes approved shareholder holdings review rows into the final outbound schema.",
+          "dagflow_business_significance": "This is the last warehouse state before the reviewed holdings dataset is written to file.",
+          "dagflow_relation": "export.shareholder_holdings_final",
+          "dagflow_materialization": "table"
+        },
+        "stepKeys": [
+          "security_shareholder_export_assets",
+          "security_shareholder_export_bundle_shareholder_holdings"
+        ]
+      },
+      {
+        "id": "security_shareholder__securities_export",
+        "label": "Securities\nExport",
+        "stepKey": "security_shareholder_export_assets",
+        "col": 5.0,
+        "row": 2.070104967979082,
+        "assetKeys": [
+          "security_shareholder__securities_export"
+        ],
+        "groupName": "validated_export",
+        "groups": [
+          "validated_export"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "validated_export",
+          "dagflow_tool": "dbt",
+          "dagflow_database": "postgres",
+          "dagflow_business_name": "Securities Export",
+          "dagflow_business_purpose": "Shapes approved security master review rows into the final outbound schema.",
+          "dagflow_business_significance": "This is the last warehouse state before the reviewed security master is written to file.",
+          "dagflow_relation": "export.security_master_final",
+          "dagflow_materialization": "table"
+        },
+        "stepKeys": [
+          "security_shareholder_export_bundle_security_master"
+        ]
+      },
+      {
+        "id": "security_shareholder__csv_export",
+        "label": "Write CSVs",
+        "stepKey": "security_shareholder__csv_export",
+        "col": 6.0,
+        "row": 1.5613828994404233,
+        "assetKeys": [
+          "security_shareholder__csv_export"
+        ],
+        "groupName": "validated_export",
+        "groups": [
+          "validated_export"
+        ],
+        "metadata": {
+          "dagflow_pipeline": "security_shareholder",
+          "dagflow_layer": "validated_export",
+          "dagflow_tool": "python",
+          "dagflow_database": "filesystem",
+          "dagflow_business_name": "Write CSVs",
+          "dagflow_business_purpose": "Writes the validated security master and shareholder holdings datasets into the outbound CSV artifacts.",
+          "dagflow_business_significance": "Delivers the reviewed daily security universe and ownership file that downstream index, analytics, and publishing consumers can load without reinterpreting review logic."
+        },
+        "stepKeys": [
+          "security_shareholder__csv_export"
+        ]
+      }
+    ],
+    "edges": [
+      [
+        "security_shareholder__source_capture__sec_company_facts_capture",
+        "security_shareholder__raw_facts"
+      ],
+      [
+        "security_shareholder__source_capture__sec_company_tickers_capture",
+        "security_shareholder__raw_tickers"
+      ],
+      [
+        "security_shareholder__source_capture__holdings_13f_capture",
+        "security_shareholder__raw_holdings"
+      ],
+      [
+        "security_shareholder__source_capture__holdings_13f_filers_capture",
+        "security_shareholder__raw_filers"
+      ],
+      [
+        "security_shareholder__raw_facts",
+        "security_shareholder__securities"
+      ],
+      [
+        "security_shareholder__raw_tickers",
+        "security_shareholder__securities"
+      ],
+      [
+        "security_shareholder__raw_filers",
+        "security_shareholder__holdings"
+      ],
+      [
+        "security_shareholder__raw_holdings",
+        "security_shareholder__holdings"
+      ],
+      [
+        "security_shareholder__securities",
+        "security_shareholder__holdings"
+      ],
+      [
+        "security_shareholder__holdings_export",
+        "security_shareholder__csv_export"
+      ],
+      [
+        "security_shareholder__securities_export",
+        "security_shareholder__csv_export"
+      ],
+      [
+        "security_shareholder__securities",
+        "security_shareholder__review_snapshot__security_shareholder_security_master_review"
+      ],
+      [
+        "security_shareholder__holdings",
+        "security_shareholder__review_snapshot__security_shareholder_shareholder_holdings_review"
+      ],
+      [
+        "security_shareholder__review_snapshot__security_shareholder_security_master_review",
+        "security_shareholder__securities_export"
+      ],
+      [
+        "security_shareholder__review_snapshot__security_shareholder_shareholder_holdings_review",
+        "security_shareholder__holdings_export"
+      ]
+    ]
+  }
+}

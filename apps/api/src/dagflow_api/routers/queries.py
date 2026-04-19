@@ -44,6 +44,14 @@ def get_security_holder_valuations(
     return repository.get_security_holder_valuations(security_review_row_id)
 
 
+@router.get("/security/{security_review_row_id}/holdings")
+def get_security_holdings_unified(
+    security_review_row_id: int,
+    repository: DagflowRepository = Depends(get_repository),
+) -> list[dict[str, object]]:
+    return repository.get_security_holdings_unified(security_review_row_id)
+
+
 @router.get("/holding/{holding_review_row_id}/peer-holders")
 def get_holding_peer_holders(
     holding_review_row_id: int,
